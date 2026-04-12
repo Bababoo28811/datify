@@ -1,0 +1,517 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F8F9FA;--surface:#FFFFFF;--text:#111111;--text2:#555555;--text3:#888888;
+  --pink:#FF4D8D;--pink-light:#FFF0F6;--pink-dark:#E03070;
+  --border:#E8E8E8;--border2:#D0D0D0;
+  --green:#15803D;--green-bg:#DCFCE7;
+  --amber:#92400E;--amber-bg:#FEF3C7;
+  --red:#991B1B;--red-bg:#FEE2E2;
+  --gray-bg:#F3F4F6;--disabled:#D1D5DB;
+  --r:14px;--r-sm:8px;--r-lg:18px;
+  --shadow:0 1px 4px rgba(0,0,0,0.08),0 4px 16px rgba(0,0,0,0.06);
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.06),0 2px 8px rgba(0,0,0,0.04);
+}
+body,html{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5}
+.page{display:none}.page.active{display:block}
+
+/* NAV */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:18px;font-weight:800;color:var(--text);letter-spacing:-0.4px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.nav-logo-dot{width:8px;height:8px;border-radius:50%;background:var(--pink)}
+.nav-tabs{display:flex;gap:4px}
+.nav-tab{padding:6px 14px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:inherit;transition:all 0.15s}
+.nav-tab:hover{background:var(--gray-bg);color:var(--text)}
+.nav-tab.active{background:var(--pink-light);color:var(--pink)}
+.nav-right{display:flex;gap:10px;align-items:center}
+.btn{padding:8px 18px;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;border:none;display:inline-flex;align-items:center;gap:6px}
+.btn-pink{background:var(--pink);color:#fff}.btn-pink:hover{background:var(--pink-dark)}
+.btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border2)}.btn-outline:hover{border-color:var(--pink);color:var(--pink)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-ghost{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;padding:6px 10px;border-radius:var(--r-sm);font-family:inherit}
+.btn-ghost:hover{background:var(--gray-bg);color:var(--text)}
+
+/* DEALS PAGE */
+.deals-wrap{max-width:1100px;margin:0 auto;padding:28px 24px}
+.deals-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.deals-title-area h1{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.4px}
+.deals-title-area p{font-size:13px;color:var(--text2);margin-top:2px}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:8px 14px;min-width:220px}
+.search-box input{border:none;outline:none;font-size:14px;font-family:inherit;color:var(--text);background:transparent;width:100%}
+.search-box input::placeholder{color:var(--text3)}
+.search-icon{width:16px;height:16px;color:var(--text3);flex-shrink:0}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+.filter-label{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-right:4px}
+.fc{padding:6px 14px;border-radius:100px;font-size:13px;font-weight:600;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap}
+.fc:hover{border-color:var(--pink);color:var(--pink)}
+.fc.on{background:var(--pink);border-color:var(--pink);color:#fff}
+.show-expired-row{display:flex;align-items:center;gap:8px;margin-bottom:20px}
+.toggle-label{font-size:13px;color:var(--text2);font-weight:500;cursor:pointer}
+.toggle{width:36px;height:20px;border-radius:100px;background:var(--disabled);border:none;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0;padding:0}
+.toggle.on{background:var(--pink)}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.toggle.on::after{left:18px}
+.deals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.deal-card{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow-sm);overflow:hidden;transition:box-shadow 0.2s,transform 0.2s;cursor:pointer}
+.deal-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.deal-card.expired{opacity:0.45;pointer-events:none}
+.deal-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:48px;position:relative;background:var(--gray-bg)}
+.deal-status-badge{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.3px}
+.badge-active{background:var(--green-bg);color:var(--green)}
+.badge-expiring{background:var(--amber-bg);color:var(--amber)}
+.badge-expired{background:var(--red-bg);color:var(--red)}
+.badge-ongoing{background:#EEF2FF;color:#3730A3}
+.badge-pink{background:var(--pink-light);color:var(--pink-dark)}
+.deal-save{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;font-size:14px}
+.deal-save:hover,.deal-save.saved{background:var(--pink-light);border-color:var(--pink);color:var(--pink)}
+.deal-body{padding:16px}
+.deal-category{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+.deal-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:5px;line-height:1.35}
+.deal-price{font-size:20px;font-weight:800;color:var(--text);margin-bottom:10px}
+.deal-price .was{font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-left:6px}
+.deal-price .save-pct{font-size:12px;font-weight:700;color:var(--green);margin-left:6px}
+.deal-meta{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.deal-meta-row{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2)}
+.meta-icon{width:14px;height:14px;flex-shrink:0;color:var(--text3)}
+.deal-footer{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border)}
+.deal-expiry{font-size:12px;font-weight:600;color:var(--text3)}
+.deal-expiry.hot{color:#DC2626}
+.deal-expiry.ongoing{color:#3730A3}
+
+/* DASHBOARD */
+.dash-wrap{max-width:1100px;margin:0 auto;padding:28px 24px}
+.dash-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:16px}
+.dash-title h1{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.4px}
+.dash-title p{font-size:13px;color:var(--text2);margin-top:2px}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;box-shadow:var(--shadow-sm)}
+.stat-val{font-size:26px;font-weight:800;color:var(--text);margin-bottom:3px}
+.stat-lbl{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+.stat-delta{font-size:12px;font-weight:600;color:var(--green);margin-top:2px}
+.dash-grid{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
+.dash-deals-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden}
+.panel-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-head h3{font-size:15px;font-weight:700;color:var(--text)}
+.deal-row{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border);transition:background 0.12s}
+.deal-row:last-child{border-bottom:none}
+.deal-row:hover{background:var(--gray-bg)}
+.deal-row-img{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--gray-bg);flex-shrink:0}
+.deal-row-info{flex:1;min-width:0}
+.deal-row-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deal-row-meta{font-size:12px;color:var(--text3);margin-top:2px}
+.deal-row-right{text-align:right;flex-shrink:0}
+.deal-row-price{font-size:14px;font-weight:700;color:var(--text)}
+.deal-row-actions{display:flex;gap:5px;margin-top:5px;justify-content:flex-end}
+.action-btn{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid var(--border);background:transparent;color:var(--text2);transition:all 0.12s}
+.action-btn:hover{border-color:var(--pink);color:var(--pink)}
+.action-btn.del:hover{border-color:#DC2626;color:#DC2626}
+
+/* FORM */
+.form-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden}
+.form-head{padding:18px 20px;border-bottom:1px solid var(--border);background:var(--surface)}
+.form-head h3{font-size:15px;font-weight:700;color:var(--text)}
+.form-head p{font-size:12px;color:var(--text2);margin-top:2px}
+.form-body{padding:20px}
+.fg{margin-bottom:16px}
+.fg.half{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg.thirds{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+label{display:block;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px}
+.form-input{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;transition:border-color 0.15s}
+.form-input:focus{border-color:var(--pink);box-shadow:0 0 0 3px rgba(255,77,141,0.08)}
+.form-input::placeholder{color:var(--text3)}
+textarea.form-input{resize:vertical;min-height:72px}
+.helper-text{font-size:11px;color:var(--text3);margin-top:4px}
+.ongoing-toggle-row{display:flex;align-items:center;gap:10px;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:border-color 0.15s;margin-top:4px}
+.ongoing-toggle-row:hover{border-color:var(--pink)}
+.ongoing-toggle-row.checked{border-color:var(--pink);background:var(--pink-light)}
+.ongoing-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0}
+.ongoing-toggle-row.checked .ongoing-check{background:var(--pink);border-color:var(--pink)}
+.ongoing-check svg{width:12px;height:12px;stroke:#fff;fill:none;display:none}
+.ongoing-toggle-row.checked .ongoing-check svg{display:block}
+.ongoing-text{font-size:13px;font-weight:600;color:var(--text)}
+.ongoing-sub{font-size:11px;color:var(--text2)}
+.time-row{display:flex;align-items:center;gap:8px}
+.time-sep{font-size:13px;color:var(--text3);font-weight:600;flex-shrink:0}
+.form-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;background:var(--gray-bg)}
+.success-toast{background:#111;color:#fff;border-radius:10px;padding:12px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;margin-bottom:16px;display:none}
+.success-toast.show{display:flex}
+.toast-icon{width:20px;height:20px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+@media(max-width:700px){
+  .dash-grid{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .fg.half,.fg.thirds{grid-template-columns:1fr}
+  .deals-grid{grid-template-columns:1fr}
+  .nav-tabs{display:none}
+  .deals-wrap,.dash-wrap{padding:16px 14px}
+}
+</style>
+
+<div id="app">
+<nav class="nav">
+  <div class="nav-logo" onclick="go('deals')">
+    <div class="nav-logo-dot"></div>
+    DealSpot
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="deals" onclick="go('deals')">Browse Deals</button>
+    <button class="nav-tab" data-page="dashboard" onclick="go('dashboard')">Supplier Dashboard</button>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-outline btn-sm" onclick="go('dashboard')">List a Deal</button>
+    <button class="btn btn-pink btn-sm" onclick="go('deals')">Explore Deals</button>
+  </div>
+</nav>
+
+<!-- ═══ DEALS PAGE ═══ -->
+<div id="page-deals" class="page active">
+  <div class="deals-wrap">
+    <div class="deals-toolbar">
+      <div class="deals-title-area">
+        <h1>Today's deals</h1>
+        <p>Curated offers near you — updated daily</p>
+      </div>
+      <div class="search-box" style="flex:1;max-width:300px">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" placeholder="Search deals..." id="search-input" oninput="renderDeals()">
+      </div>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Category</span>
+      <button class="fc on" data-cat="all" onclick="setFilter(this,'cat')">All</button>
+      <button class="fc" data-cat="dining" onclick="setFilter(this,'cat')">Dining</button>
+      <button class="fc" data-cat="activities" onclick="setFilter(this,'cat')">Activities</button>
+      <button class="fc" data-cat="wellness" onclick="setFilter(this,'cat')">Wellness</button>
+      <button class="fc" data-cat="entertainment" onclick="setFilter(this,'cat')">Entertainment</button>
+    </div>
+    <div class="show-expired-row">
+      <button class="toggle" id="expired-toggle" onclick="toggleExpired()"></button>
+      <span class="toggle-label" onclick="toggleExpired()">Show expired deals</span>
+    </div>
+    <div class="deals-grid" id="deals-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="page-dashboard" class="page">
+  <div class="dash-wrap">
+    <div class="dash-top">
+      <div class="dash-title">
+        <h1>Supplier dashboard</h1>
+        <p>Manage your deals and track performance</p>
+      </div>
+      <button class="btn btn-pink" onclick="scrollToForm()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+        Add new deal
+      </button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="stat-active">—</div><div class="stat-lbl">Active deals</div><div class="stat-delta">Live now</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-lbl">Total deals</div></div>
+      <div class="stat-card"><div class="stat-val">1.2k</div><div class="stat-lbl">Views this week</div><div class="stat-delta">+18% vs last week</div></div>
+      <div class="stat-card"><div class="stat-val">84</div><div class="stat-lbl">Saves</div><div class="stat-delta">+5 today</div></div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="dash-deals-panel">
+        <div class="panel-head">
+          <h3>Your deals</h3>
+          <span style="font-size:12px;color:var(--text3)" id="dash-count"></span>
+        </div>
+        <div id="dash-deal-list"></div>
+      </div>
+
+      <div id="form-anchor">
+        <div id="success-toast" class="success-toast">
+          <div class="toast-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          Deal published successfully!
+        </div>
+        <div class="form-panel">
+          <div class="form-head">
+            <h3>Add a new deal</h3>
+            <p>Fill in the details to publish your deal</p>
+          </div>
+          <div class="form-body">
+            <div class="fg">
+              <label>Deal title *</label>
+              <input class="form-input" id="f-title" type="text" placeholder="e.g. 2-for-1 Pasta Night">
+            </div>
+            <div class="fg">
+              <label>Description</label>
+              <textarea class="form-input" id="f-desc" placeholder="Describe what's included, any restrictions..."></textarea>
+            </div>
+            <div class="fg half">
+              <div>
+                <label>Price ($) *</label>
+                <input class="form-input" id="f-price" type="number" placeholder="0.00" min="0" step="0.01">
+              </div>
+              <div>
+                <label>Original price ($)</label>
+                <input class="form-input" id="f-orig" type="number" placeholder="0.00" min="0" step="0.01">
+              </div>
+            </div>
+            <div class="fg half">
+              <div>
+                <label>Category</label>
+                <select class="form-input" id="f-cat">
+                  <option value="dining">Dining</option>
+                  <option value="activities">Activities</option>
+                  <option value="wellness">Wellness</option>
+                  <option value="entertainment">Entertainment</option>
+                </select>
+              </div>
+              <div>
+                <label>Location</label>
+                <input class="form-input" id="f-loc" type="text" placeholder="e.g. Marina Bay, Singapore">
+              </div>
+            </div>
+            <div class="fg half">
+              <div>
+                <label>Start date *</label>
+                <input class="form-input" id="f-start" type="date">
+              </div>
+              <div>
+                <label>End date</label>
+                <input class="form-input" id="f-end" type="date" id="f-end-input">
+                <div class="helper-text">Leave blank if ongoing</div>
+              </div>
+            </div>
+            <div class="fg">
+              <label>Or mark as ongoing</label>
+              <div class="ongoing-toggle-row" id="ongoing-row" onclick="toggleOngoing()">
+                <div class="ongoing-check">
+                  <svg viewBox="0 0 24 24" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <div>
+                  <div class="ongoing-text">No end date — till further notice</div>
+                  <div class="ongoing-sub">Deal stays live until you manually remove it</div>
+                </div>
+              </div>
+            </div>
+            <div class="fg">
+              <label>Best time to visit</label>
+              <div class="time-row">
+                <input class="form-input" id="f-tstart" type="time" value="11:00" style="flex:1">
+                <span class="time-sep">to</span>
+                <input class="form-input" id="f-tend" type="time" value="15:00" style="flex:1">
+              </div>
+              <div class="helper-text">Recommended visit window for best experience</div>
+            </div>
+          </div>
+          <div class="form-footer">
+            <button class="btn btn-ghost btn-sm" onclick="resetForm()">Clear</button>
+            <button class="btn btn-outline btn-sm">Save draft</button>
+            <button class="btn btn-pink btn-sm" onclick="submitDeal()">Publish deal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const EMOJIS={dining:'🍽',activities:'🎯',wellness:'💆',entertainment:'🎭'};
+const COLORS={dining:'#FFF7ED',activities:'#F0FDF4',wellness:'#F5F3FF',entertainment:'#FFF0F6'};
+
+let filterCat='all', showExpired=false;
+const today=new Date(); today.setHours(0,0,0,0);
+
+const seedDeals=[
+  {id:1,title:'Chef\'s Tasting Menu for Two',desc:'5-course seasonal menu paired with house wines',price:98,orig:140,cat:'dining',loc:'Duxton Hill, Singapore',tstart:'18:00',tend:'22:00',start:'2025-01-01',end:'2025-12-31',ongoing:false,emoji:'🍽',bg:'#FFF7ED'},
+  {id:2,title:'90-min Deep Tissue Massage',desc:'Full-body relaxation with aromatherapy',price:65,orig:90,cat:'wellness',loc:'Orchard Rd, Singapore',tstart:'10:00',tend:'20:00',start:'2025-01-01',end:null,ongoing:true,emoji:'💆',bg:'#F5F3FF'},
+  {id:3,title:'Rooftop Cocktail Hour',desc:'2-for-1 craft cocktails every evening',price:18,orig:36,cat:'dining',loc:'Marina Bay Sands',tstart:'17:00',tend:'20:00',start:'2025-01-01',end:'2025-04-05',ongoing:false,emoji:'🍹',bg:'#FFF7ED'},
+  {id:4,title:'Pottery Workshop',desc:'Beginner wheel-throwing class, all materials included',price:42,orig:55,cat:'activities',loc:'Tiong Bahru, Singapore',tstart:'09:00',tend:'17:00',start:'2025-02-01',end:'2025-09-30',ongoing:false,emoji:'🏺',bg:'#F0FDF4'},
+  {id:5,title:'Comedy Night — Two Tickets',desc:'Stand-up showcase featuring local and international acts',price:30,orig:50,cat:'entertainment',loc:'Clarke Quay, Singapore',tstart:'19:30',tend:'22:00',start:'2025-03-15',end:'2025-03-20',ongoing:false,emoji:'🎤',bg:'#FFF0F6'},
+  {id:6,title:'Night Cycling Tour',desc:'Guided 15km moonlight cycle along East Coast Park',price:22,orig:30,cat:'activities',loc:'East Coast Park',tstart:'20:00',tend:'23:00',start:'2025-01-01',end:null,ongoing:true,emoji:'🚴',bg:'#F0FDF4'},
+  {id:7,title:'Omakase Lunch (6 courses)',desc:'Chef-selected Japanese omakase, counter seating',price:75,orig:110,cat:'dining',loc:'Tanjong Pagar',tstart:'12:00',tend:'14:30',start:'2025-04-01',end:'2025-06-30',ongoing:false,emoji:'🍣',bg:'#FFF7ED'},
+];
+let deals=[...seedDeals];
+let nextId=seedDeals.length+1;
+let isOngoing=false;
+
+function dealStatus(d){
+  if(d.ongoing) return{label:'Till further notice',cls:'badge-ongoing',expired:false,expiry:'ongoing'};
+  const end=new Date(d.end); end.setHours(0,0,0,0);
+  const diff=Math.round((end-today)/(86400000));
+  if(diff<0) return{label:'Expired',cls:'badge-expired',expired:true,expiry:'Expired'};
+  if(diff===0) return{label:'Last day!',cls:'badge-expiring',expired:false,expiry:'Last day!'};
+  if(diff<=3) return{label:`Ends in ${diff} day${diff>1?'s':''}`,cls:'badge-expiring',expired:false,expiry:`Ends in ${diff} day${diff>1?'s':''}`};
+  return{label:'Active',cls:'badge-active',expired:false,expiry:`Ends ${end.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`};
+}
+
+function fmtTime(t){if(!t)return'';const[h,m]=t.split(':');const hr=+h;return (hr%12||12)+':'+(m||'00')+(hr>=12?' PM':' AM')}
+
+function pct(p,o){if(!o||+o<=+p)return null;return Math.round((1-+p/+o)*100)}
+
+function renderDeals(){
+  const q=(document.getElementById('search-input')?.value||'').toLowerCase();
+  const grid=document.getElementById('deals-grid');
+  const filtered=deals.filter(d=>{
+    const st=dealStatus(d);
+    if(st.expired&&!showExpired) return false;
+    if(filterCat!=='all'&&d.cat!==filterCat) return false;
+    if(q&&!d.title.toLowerCase().includes(q)&&!d.loc.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  grid.innerHTML=filtered.map(d=>{
+    const st=dealStatus(d);
+    const p=pct(d.price,d.orig);
+    const expCls=st.expiry==='Last day!'||st.expiry.includes('Ends in')?'hot':st.ongoing?'ongoing':'';
+    return`<div class="deal-card${st.expired?' expired':''}" onclick="void(0)">
+      <div class="deal-img" style="background:${d.bg||'#F3F4F6'}">
+        <span style="font-size:48px">${d.emoji||EMOJIS[d.cat]||'🎁'}</span>
+        <span class="deal-status-badge ${st.cls}">${st.label}</span>
+        <span class="deal-save" onclick="event.stopPropagation();this.classList.toggle('saved')">♡</span>
+      </div>
+      <div class="deal-body">
+        <div class="deal-category">${d.cat}</div>
+        <div class="deal-name">${d.title}</div>
+        <div class="deal-price">$${(+d.price).toFixed(2)}${d.orig?`<span class="was">$${(+d.orig).toFixed(2)}</span>`:''}${p?`<span class="save-pct">-${p}%</span>`:''}</div>
+        <div class="deal-meta">
+          <div class="deal-meta-row">
+            <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            ${d.loc}
+          </div>
+          <div class="deal-meta-row">
+            <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Best time: ${fmtTime(d.tstart)} – ${fmtTime(d.tend)}
+          </div>
+        </div>
+        <div class="deal-footer">
+          <span class="deal-expiry ${expCls}">${st.expiry}</span>
+          <button class="btn btn-pink btn-sm" onclick="event.stopPropagation()">View deal</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')||`<div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text2)"><div style="font-size:36px;margin-bottom:12px">🔍</div><div style="font-size:16px;font-weight:600">No deals found</div><div style="font-size:13px;margin-top:4px">Try adjusting your filters</div></div>`;
+}
+
+function renderDashboard(){
+  const active=deals.filter(d=>!dealStatus(d).expired).length;
+  document.getElementById('stat-active').textContent=active;
+  document.getElementById('stat-total').textContent=deals.length;
+  document.getElementById('dash-count').textContent=`${deals.length} deal${deals.length!==1?'s':''}`;
+  const list=document.getElementById('dash-deal-list');
+  list.innerHTML=deals.map(d=>{
+    const st=dealStatus(d);
+    return`<div class="deal-row">
+      <div class="deal-row-img" style="background:${d.bg||'#F3F4F6'}">${d.emoji||EMOJIS[d.cat]||'🎁'}</div>
+      <div class="deal-row-info">
+        <div class="deal-row-name">${d.title}</div>
+        <div class="deal-row-meta">${d.loc||'—'} · <span class="${st.cls}" style="display:inline;font-size:11px;font-weight:700;padding:1px 6px;border-radius:100px;background:${st.cls==='badge-active'?'#DCFCE7':st.cls==='badge-expired'?'#FEE2E2':st.cls==='badge-ongoing'?'#EEF2FF':'#FEF3C7'};color:${st.cls==='badge-active'?'#15803D':st.cls==='badge-expired'?'#991B1B':st.cls==='badge-ongoing'?'#3730A3':'#92400E'}">${st.label}</span></div>
+      </div>
+      <div class="deal-row-right">
+        <div class="deal-row-price">$${(+d.price).toFixed(2)}</div>
+        <div class="deal-row-actions">
+          <button class="action-btn" onclick="editDeal(${d.id})">Edit</button>
+          <button class="action-btn del" onclick="deleteDeal(${d.id})">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setFilter(el,type){
+  document.querySelectorAll(`[data-cat]`).forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');filterCat=el.dataset.cat;renderDeals();
+}
+
+function toggleExpired(){
+  showExpired=!showExpired;
+  const t=document.getElementById('expired-toggle');
+  t.classList.toggle('on',showExpired);
+  renderDeals();
+}
+
+function toggleOngoing(){
+  isOngoing=!isOngoing;
+  const row=document.getElementById('ongoing-row');
+  row.classList.toggle('checked',isOngoing);
+  const endInput=document.getElementById('f-end');
+  endInput.disabled=isOngoing;endInput.style.opacity=isOngoing?'0.4':'1';
+}
+
+function resetForm(){
+  ['f-title','f-desc','f-price','f-orig','f-loc','f-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  document.getElementById('f-start').value='';
+  document.getElementById('f-tstart').value='11:00';
+  document.getElementById('f-tend').value='15:00';
+  document.getElementById('f-cat').value='dining';
+  if(isOngoing){toggleOngoing()}
+}
+
+function submitDeal(){
+  const title=document.getElementById('f-title').value.trim();
+  const price=document.getElementById('f-price').value;
+  const start=document.getElementById('f-start').value;
+  if(!title){document.getElementById('f-title').focus();document.getElementById('f-title').style.borderColor='#DC2626';setTimeout(()=>document.getElementById('f-title').style.borderColor='',1500);return}
+  if(!price){document.getElementById('f-price').focus();return}
+  if(!start){document.getElementById('f-start').focus();return}
+  const cat=document.getElementById('f-cat').value;
+  const newDeal={
+    id:nextId++,
+    title,
+    desc:document.getElementById('f-desc').value,
+    price:+price,
+    orig:+document.getElementById('f-orig').value||null,
+    cat,loc:document.getElementById('f-loc').value||'Location TBD',
+    tstart:document.getElementById('f-tstart').value,
+    tend:document.getElementById('f-tend').value,
+    start,
+    end:isOngoing?null:document.getElementById('f-end').value||null,
+    ongoing:isOngoing||!document.getElementById('f-end').value,
+    emoji:EMOJIS[cat]||'🎁',bg:COLORS[cat]||'#F3F4F6',
+  };
+  deals.unshift(newDeal);
+  resetForm();
+  renderDeals();renderDashboard();
+  const toast=document.getElementById('success-toast');
+  toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3000);
+  document.getElementById('form-anchor').scrollIntoView({behavior:'smooth'});
+}
+
+function deleteDeal(id){
+  deals=deals.filter(d=>d.id!==id);
+  renderDeals();renderDashboard();
+}
+
+function editDeal(id){
+  const d=deals.find(x=>x.id===id);if(!d)return;
+  go('dashboard');
+  document.getElementById('f-title').value=d.title;
+  document.getElementById('f-desc').value=d.desc||'';
+  document.getElementById('f-price').value=d.price;
+  document.getElementById('f-orig').value=d.orig||'';
+  document.getElementById('f-cat').value=d.cat;
+  document.getElementById('f-loc').value=d.loc||'';
+  document.getElementById('f-start').value=d.start||'';
+  document.getElementById('f-end').value=d.end||'';
+  document.getElementById('f-tstart').value=d.tstart||'11:00';
+  document.getElementById('f-tend').value=d.tend||'15:00';
+  if(d.ongoing&&!isOngoing) toggleOngoing();
+  else if(!d.ongoing&&isOngoing) toggleOngoing();
+  deals=deals.filter(x=>x.id!==id);nextId--;
+  scrollToForm();
+}
+
+function scrollToForm(){document.getElementById('form-anchor').scrollIntoView({behavior:'smooth',block:'start'})}
+
+function go(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>{t.classList.toggle('active',t.dataset.page===page)});
+  document.getElementById('page-'+page).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(page==='dashboard')renderDashboard();
+}
+
+const td=new Date();
+document.getElementById('f-start').value=td.toISOString().split('T')[0];
+document.getElementById('f-start').min=td.toISOString().split('T')[0];
+
+renderDeals();renderDashboard();
+</script>
