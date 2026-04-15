@@ -796,3 +796,209 @@ window.go=function(page){
   origGo(page);
 };
 </script>
+<script>
+// =============================================
+// SUPABASE CLIENT — put this at the top of your
+// script, or in a shared supabase.js file
+// =============================================
+const { createClient } = supabase;
+const _supabase = createClient(
+  'https://uujbonptqglzndzlovmp.supabase.co',
+  'YOUR_ANON_KEY_HERE'   // replace with your actual anon key from Supabase dashboard
+);
+
+
+// =============================================
+// SIGN UP
+// =============================================
+async function handleSignUp() {
+  const emailEl    = document.getElementById('email');
+  const passwordEl = document.getElementById('password');
+  const submitBtn  = document.getElementById('signup-btn');
+
+  const email    = emailEl.value.trim();
+  const password = passwordEl.value.trim();
+
+  // --- Hard validation ---
+  if (!email || !password) {
+    showError('Please fill in all fields.');
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showError('Please enter a valid email address.');
+    return;
+  }
+  if (password.length < 6) {
+    showError('Password must be at least 6 characters.');
+    return;
+  }
+
+  // --- Disable button to prevent double-submit ---
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creating account...';
+
+  try {
+    const { data, error } = await _supabase.auth.signUp({ email, password });
+
+    if (error) {
+      showError(error.message);
+      return;
+    }
+
+    if (!data.user) {
+      showError('Signup failed. Please try again.');
+      return;
+    }
+
+    // Profile is created automatically by the DB trigger.
+    // No need to manually insert — this was your RLS bug.
+
+    showSuccess('Account created! Please check your email to confirm.');
+
+  } catch (err) {
+    console.error('Signup error:', err);
+    showError('Something went wrong. Please try again.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign Up';
+  }
+}
+
+
+// =============================================
+// LOG IN
+// =============================================
+async function handleLogin() {
+  const emailEl    = document.getElementById('email');
+  const passwordEl = document.getElementById('password');
+  const submitBtn  = document.getElementById('login-btn');
+
+  const email    = emailEl.value.trim();
+  const password = passwordEl.value.trim();
+
+  // --- Hard validation ---
+  if (!email || !password) {
+    showError('Please enter your email and password.');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Signing in...';
+
+  try {
+    const { data, error } = await _supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      showError(error.message);
+      return;
+    }
+
+    // Redirect after successful login
+    window.location.href = '/dashboard.html'; // change to your actual page
+
+  } catch (err) {
+    console.error('Login error:', err);
+    showError('Something went wrong. Please try again.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Log In';
+  }
+}
+
+
+// =============================================
+// FETCH ACTIVE DEALS (for the deals page)
+// =============================================
+async function loadDeals() {
+  // Option A: use the view (simplest)
+  const { data: deals, error } = await _supabase
+    .from('active_deals')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error loading deals:', error);
+    return [];
+  }
+
+  return deals;
+}
+
+
+// =============================================
+// ADD A DEAL (supplier dashboard)
+// =============================================
+async function addDeal(formData) {
+  const { data: { user } } = await _supabase.auth.getUser();
+
+  if (!user) {
+    showError('You must be logged in to add a deal.');
+    return;
+  }
+
+  const { error } = await _supabase.from('deals').insert([{
+    supplier_id:     user.id,
+    title:           formData.title,
+    description:     formData.description,
+    price:           parseFloat(formData.price),
+    original_price:  parseFloat(formData.original_price) || null,
+    location:        formData.location,
+    category:        formData.category,
+    start_date:      formData.start_date,
+    end_date:        formData.is_ongoing ? null : (formData.end_date || null),
+    best_time_start: formData.best_time_start || null,
+    best_time_end:   formData.best_time_end   || null,
+    is_ongoing:      formData.is_ongoing === true,
+    status:          'active'
+  }]);
+
+  if (error) {
+    console.error('Insert deal error:', error);
+    showError('Failed to add deal: ' + error.message);
+    return false;
+  }
+
+  return true;
+}
+
+
+// =============================================
+// UI HELPERS
+// =============================================
+function showError(message) {
+  const el = document.getElementById('error-msg');
+  if (el) {
+    el.textContent = message;
+    el.style.display = 'block';
+  } else {
+    alert(message); // fallback
+  }
+}
+
+function showSuccess(message) {
+  const el = document.getElementById('success-msg');
+  if (el) {
+    el.textContent = message;
+    el.style.display = 'block';
+  } else {
+    alert(message);
+  }
+}
+
+
+// =============================================
+// AUTH STATE LISTENER
+// — redirects logged-in users away from auth pages
+// =============================================
+_supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && window.location.pathname.includes('login')) {
+    window.location.href = '/dashboard.html';
+  }
+  if (event === 'SIGNED_OUT' && window.location.pathname.includes('dashboard')) {
+    window.location.href = '/login.html';
+  }
+});
+</script>
