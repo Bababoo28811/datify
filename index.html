@@ -975,7 +975,7 @@
     const d = DEALS.find(x => x.id === id);
     if (!d) return;
     document.getElementById('detail-img').style.background = d.bg;
-    // safely set emoji text
+   n // safely set emoji text
     const heroEl = document.getElementById('detail-img');
     heroEl.childNodes[0].textContent = d.emoji;
     document.getElementById('detail-tags').innerHTML =
