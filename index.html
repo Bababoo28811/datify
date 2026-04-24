@@ -677,6 +677,20 @@
   }
 
   // ============================================================
+  // ✅ SUPPLIER CHECK — silently checks the whitelist table.
+  // Returns true if the email belongs to a supplier.
+  // This is invisible to regular users; it's just a DB read.
+  // ============================================================
+  async function isSupplierEmail(email) {
+    const { data, error } = await db
+      .from('supplier_whitelist')
+      .select('email')
+      .eq('email', email)
+      .single();
+    return !error && !!data;
+  }
+
+  // ============================================================
   // ✅ STEP 4 — Log In (with full validation)
   // ============================================================
   async function handleLogin() {
@@ -704,7 +718,14 @@
 
       okEl.textContent   = '✓ Signed in! Redirecting…';
       okEl.style.display = 'block';
-      setTimeout(() => go('planner'), 1000);
+
+      // Stealth supplier check — redirect to dashboard if whitelisted
+      const supplier = await isSupplierEmail(email);
+      if (supplier) {
+        window.location.href = 'supplier-dashboard.html';
+      } else {
+        setTimeout(() => go('planner'), 1000);
+      }
 
     } catch (err) {
       errEl.textContent   = err.message || 'Invalid email or password.';
@@ -1066,9 +1087,17 @@
   buildHomeTrending();
   buildExplore();
 
-  // Check if already logged in on page load
-  db.auth.getSession().then(({ data: { session } }) => {
+  // Check if already logged in on page load.
+  // If a supplier lands on index.html while already signed in,
+  // silently bounce them to their dashboard.
+  db.auth.getSession().then(async ({ data: { session } }) => {
     updateNavForAuth(session?.user ?? null);
+    if (session?.user) {
+      const supplier = await isSupplierEmail(session.user.email);
+      if (supplier) {
+        window.location.href = 'supplier-dashboard.html';
+      }
+    }
   });
 </script>
 </body>
