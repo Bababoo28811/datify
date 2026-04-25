@@ -45,6 +45,58 @@
     .btn-outline{padding:9px 20px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid var(--pink);background:transparent;color:var(--pink);font-family:'Inter',sans-serif;transition:all 0.18s}
     .btn-outline:hover{background:var(--pink-light)}
 
+    /* NAV USER BUTTON */
+    .nav-user-btn{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 8px;
+                  border-radius:100px;border:1.5px solid var(--border);background:white;
+                  cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.18s;
+                  font-size:14px;font-weight:600;color:var(--text)}
+    .nav-user-btn:hover{border-color:var(--pink);color:var(--pink)}
+    .nav-user-avatar{width:28px;height:28px;border-radius:50%;background:var(--pink);
+                     display:flex;align-items:center;justify-content:center;
+                     font-size:12px;font-weight:800;color:white;flex-shrink:0}
+    .nav-user-chevron{font-size:10px;color:var(--muted);margin-left:2px}
+
+    /* PROFILE PAGE */
+    .profile-wrap{max-width:680px;margin:0 auto;padding:40px 24px}
+    .profile-header{margin-bottom:32px}
+    .profile-header h1{font-size:28px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+    .profile-header p{color:var(--muted);font-size:14px}
+    .profile-avatar-row{display:flex;align-items:center;gap:20px;
+                         background:white;border:1px solid var(--border);
+                         border-radius:var(--r);padding:24px 28px;margin-bottom:20px;
+                         box-shadow:var(--shadow-sm)}
+    .profile-avatar-lg{width:72px;height:72px;border-radius:50%;background:var(--pink);
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:26px;font-weight:800;color:white;flex-shrink:0}
+    .profile-avatar-info h2{font-size:20px;font-weight:800;margin-bottom:3px}
+    .profile-avatar-info p{font-size:13px;color:var(--muted)}
+    .profile-card{background:white;border:1px solid var(--border);border-radius:var(--r);
+                  padding:28px;margin-bottom:20px;box-shadow:var(--shadow-sm)}
+    .profile-card h3{font-size:15px;font-weight:700;margin-bottom:18px;
+                     padding-bottom:14px;border-bottom:1px solid var(--border)}
+    .profile-field{margin-bottom:16px}
+    .profile-field label{display:block;font-size:12px;font-weight:700;color:var(--muted);
+                         text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px}
+    .profile-field input{width:100%;padding:11px 14px;border:1.5px solid var(--border);
+                          border-radius:12px;font-size:14px;font-family:'Inter',sans-serif;
+                          background:var(--bg);color:var(--text);outline:none;transition:border-color 0.15s}
+    .profile-field input:focus{border-color:var(--pink)}
+    .profile-field input[readonly]{background:#f9f9f9;color:var(--muted);cursor:not-allowed}
+    .profile-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .profile-save-btn{padding:12px 28px;border-radius:12px;font-size:14px;font-weight:700;
+                       cursor:pointer;border:none;background:var(--pink);color:white;
+                       font-family:'Inter',sans-serif;transition:all 0.18s}
+    .profile-save-btn:hover{background:var(--pink-dark)}
+    .profile-save-btn:disabled{background:#ccc;cursor:not-allowed}
+    .profile-msg{padding:10px 14px;border-radius:10px;font-size:13px;font-weight:500;
+                  margin-top:12px;display:none}
+    .profile-msg.ok{background:#DCFCE7;color:#15803D}
+    .profile-msg.err{background:#FEE2E2;color:#991B1B}
+    .profile-danger-btn{padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;
+                         cursor:pointer;border:1.5px solid var(--border);background:transparent;
+                         color:var(--muted);font-family:'Inter',sans-serif;transition:all 0.15s}
+    .profile-danger-btn:hover{border-color:var(--red);color:var(--red)}
+
     /* HERO */
     .hero{padding:80px 40px 60px;text-align:center;max-width:720px;margin:0 auto}
     .hero-eyebrow{display:inline-flex;align-items:center;gap:7px;background:var(--pink-light);border:1px solid var(--border);color:var(--pink);font-size:12px;font-weight:700;padding:6px 16px;border-radius:100px;margin-bottom:24px;letter-spacing:0.6px;text-transform:uppercase}
@@ -588,6 +640,70 @@
       <div id="saved-list"></div>
     </div>
   </div>
+
+  <!-- PROFILE -->
+  <div id="page-profile" class="page">
+    <div class="profile-wrap">
+      <div class="profile-header">
+        <h1>My <span style="color:var(--pink)">Profile</span></h1>
+        <p>Manage your account details and preferences</p>
+      </div>
+
+      <!-- Avatar row -->
+      <div class="profile-avatar-row">
+        <div class="profile-avatar-lg" id="profile-avatar-lg">?</div>
+        <div class="profile-avatar-info">
+          <h2 id="profile-display-name">Loading…</h2>
+          <p id="profile-display-email" style="color:var(--muted);font-size:13px"></p>
+        </div>
+      </div>
+
+      <!-- Personal details -->
+      <div class="profile-card">
+        <h3>Personal Details</h3>
+        <div class="profile-field-row">
+          <div class="profile-field">
+            <label>First Name</label>
+            <input type="text" id="pf-first" placeholder="Alex">
+          </div>
+          <div class="profile-field">
+            <label>Last Name</label>
+            <input type="text" id="pf-last" placeholder="Kim">
+          </div>
+        </div>
+        <div class="profile-field">
+          <label>Email</label>
+          <input type="email" id="pf-email" readonly>
+        </div>
+        <button class="profile-save-btn" id="profile-save-btn" onclick="saveProfileDetails()">Save Changes</button>
+        <div class="profile-msg" id="profile-details-msg"></div>
+      </div>
+
+      <!-- Change password -->
+      <div class="profile-card">
+        <h3>Change Password</h3>
+        <div class="profile-field">
+          <label>New Password</label>
+          <input type="password" id="pf-new-pass" placeholder="Min. 6 characters">
+        </div>
+        <div class="profile-field">
+          <label>Confirm New Password</label>
+          <input type="password" id="pf-confirm-pass" placeholder="Repeat new password">
+        </div>
+        <button class="profile-save-btn" id="profile-pass-btn" onclick="saveProfilePassword()">Update Password</button>
+        <div class="profile-msg" id="profile-pass-msg"></div>
+      </div>
+
+      <!-- Sign out -->
+      <div class="profile-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:15px;font-weight:600">Sign out</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:2px">You'll need to sign in again to access your plans.</div>
+        </div>
+        <button class="profile-danger-btn" onclick="handleLogout()">Sign out of Datify</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -611,11 +727,17 @@
   function updateNavForAuth(user) {
     const area = document.getElementById('nav-auth-area');
     if (user) {
+      const meta      = user.user_metadata || {};
+      const firstName = meta.first_name || '';
+      const lastName  = meta.last_name  || '';
+      const fullName  = (firstName + ' ' + lastName).trim() || user.email.split('@')[0];
+      const initials  = (firstName ? firstName[0] : (user.email[0] || '?')).toUpperCase();
       area.innerHTML = `
-        <span style="font-size:13px;color:var(--muted);font-weight:500">
-          ${user.email}
-        </span>
-        <button class="btn-ghost" onclick="handleLogout()">Sign out</button>`;
+        <button class="nav-user-btn" onclick="go('profile')" title="My profile">
+          <div class="nav-user-avatar">${initials}</div>
+          <span>${fullName}</span>
+          <span class="nav-user-chevron">▾</span>
+        </button>`;
     } else {
       area.innerHTML = `
         <button class="btn-ghost" onclick="go('login')">Sign in</button>
@@ -627,29 +749,31 @@
   // ✅ STEP 3 — Sign Up (with full validation)
   // ============================================================
   async function handleSignUp() {
-    const email    = document.getElementById('signup-email').value.trim();
-    const password = document.getElementById('signup-password').value.trim();
-    const btn      = document.getElementById('signup-btn');
-    const errEl    = document.getElementById('signup-error');
-    const okEl     = document.getElementById('signup-success');
+    const firstName = document.getElementById('signup-firstname').value.trim();
+    const lastName  = document.getElementById('signup-lastname').value.trim();
+    const email     = document.getElementById('signup-email').value.trim();
+    const password  = document.getElementById('signup-password').value.trim();
+    const btn       = document.getElementById('signup-btn');
+    const errEl     = document.getElementById('signup-error');
+    const okEl      = document.getElementById('signup-success');
 
     // Hide previous messages
     errEl.style.display = 'none';
     okEl.style.display  = 'none';
 
     // Validate BEFORE touching Supabase
-    if (!email || !password) {
-      errEl.textContent = 'Please fill in your email and password.';
+    if (!firstName || !email || !password) {
+      errEl.textContent   = 'Please fill in your first name, email and password.';
       errEl.style.display = 'block';
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errEl.textContent = 'Please enter a valid email address.';
+      errEl.textContent   = 'Please enter a valid email address.';
       errEl.style.display = 'block';
       return;
     }
     if (password.length < 6) {
-      errEl.textContent = 'Password must be at least 6 characters.';
+      errEl.textContent   = 'Password must be at least 6 characters.';
       errEl.style.display = 'block';
       return;
     }
@@ -658,11 +782,20 @@
     btn.textContent = 'Creating account…';
 
     try {
-      const { data, error } = await db.auth.signUp({ email, password });
+      const { data, error } = await db.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { first_name: firstName, last_name: lastName }
+        }
+      });
       if (error) throw error;
 
-      okEl.textContent    = '✓ Account created! Check your email to confirm.';
-      okEl.style.display  = 'block';
+      // Update the nav avatar immediately — don't wait for onAuthStateChange
+      if (data.user) updateNavForAuth(data.user);
+
+      okEl.textContent   = '✓ Account created! Check your email to confirm.';
+      okEl.style.display = 'block';
 
       // Auto-navigate to planner after short delay
       setTimeout(() => go('planner'), 1800);
@@ -793,6 +926,7 @@
     // Side effects per page
     if (page === 'saved')   buildSaved();
     if (page === 'explore') buildExplore(activeCat, activePriceF);
+    if (page === 'profile') buildProfile();
   }
 
   function setVibeAndGo(v) {
@@ -996,7 +1130,7 @@
     const d = DEALS.find(x => x.id === id);
     if (!d) return;
     document.getElementById('detail-img').style.background = d.bg;
-   n // safely set emoji text
+    // safely set emoji text
     const heroEl = document.getElementById('detail-img');
     heroEl.childNodes[0].textContent = d.emoji;
     document.getElementById('detail-tags').innerHTML =
@@ -1056,7 +1190,124 @@
   }
 
   // ============================================================
-  // HELPERS
+  // PROFILE PAGE
+  // ============================================================
+  async function buildProfile() {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) { go('login'); return; }
+
+    const user      = session.user;
+    const meta      = user.user_metadata || {};
+    const firstName = meta.first_name || '';
+    const lastName  = meta.last_name  || '';
+    const fullName  = (firstName + ' ' + lastName).trim() || user.email.split('@')[0];
+    const initials  = (firstName ? firstName[0] : user.email[0]).toUpperCase();
+
+    // Avatar + header
+    const avatarEl = document.getElementById('profile-avatar-lg');
+    if (avatarEl) avatarEl.textContent = initials;
+    const nameEl = document.getElementById('profile-display-name');
+    if (nameEl) nameEl.textContent = fullName;
+    const emailEl = document.getElementById('profile-display-email');
+    if (emailEl) emailEl.textContent = user.email;
+
+    // Populate fields
+    const pfFirst = document.getElementById('pf-first');
+    const pfLast  = document.getElementById('pf-last');
+    const pfEmail = document.getElementById('pf-email');
+    if (pfFirst) pfFirst.value = firstName;
+    if (pfLast)  pfLast.value  = lastName;
+    if (pfEmail) pfEmail.value = user.email;
+
+    // Clear password fields and messages
+    const pfNewPass  = document.getElementById('pf-new-pass');
+    const pfConfPass = document.getElementById('pf-confirm-pass');
+    if (pfNewPass)  pfNewPass.value  = '';
+    if (pfConfPass) pfConfPass.value = '';
+    ['profile-details-msg', 'profile-pass-msg'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+
+  async function saveProfileDetails() {
+    const btn    = document.getElementById('profile-save-btn');
+    const msgEl  = document.getElementById('profile-details-msg');
+    const first  = document.getElementById('pf-first').value.trim();
+    const last   = document.getElementById('pf-last').value.trim();
+
+    if (!first) {
+      showProfileMsg(msgEl, 'err', 'First name is required.');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const { data, error } = await db.auth.updateUser({
+        data: { first_name: first, last_name: last }
+      });
+      if (error) throw error;
+
+      // Refresh the nav and avatar immediately
+      updateNavForAuth(data.user);
+      const avatarEl = document.getElementById('profile-avatar-lg');
+      const nameEl   = document.getElementById('profile-display-name');
+      if (avatarEl) avatarEl.textContent = first[0].toUpperCase();
+      if (nameEl)   nameEl.textContent   = (first + ' ' + last).trim();
+
+      showProfileMsg(msgEl, 'ok', '✓ Profile updated!');
+    } catch (err) {
+      showProfileMsg(msgEl, 'err', err.message || 'Could not save changes.');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Save Changes';
+    }
+  }
+
+  async function saveProfilePassword() {
+    const btn     = document.getElementById('profile-pass-btn');
+    const msgEl   = document.getElementById('profile-pass-msg');
+    const newPass = document.getElementById('pf-new-pass').value.trim();
+    const confPass= document.getElementById('pf-confirm-pass').value.trim();
+
+    if (!newPass || newPass.length < 6) {
+      showProfileMsg(msgEl, 'err', 'Password must be at least 6 characters.');
+      return;
+    }
+    if (newPass !== confPass) {
+      showProfileMsg(msgEl, 'err', 'Passwords do not match.');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Updating…';
+
+    try {
+      const { error } = await db.auth.updateUser({ password: newPass });
+      if (error) throw error;
+
+      document.getElementById('pf-new-pass').value   = '';
+      document.getElementById('pf-confirm-pass').value = '';
+      showProfileMsg(msgEl, 'ok', '✓ Password updated successfully!');
+    } catch (err) {
+      showProfileMsg(msgEl, 'err', err.message || 'Could not update password.');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Update Password';
+    }
+  }
+
+  function showProfileMsg(el, type, text) {
+    el.textContent  = text;
+    el.className    = 'profile-msg ' + (type === 'ok' ? 'ok' : 'err');
+    el.style.display = 'block';
+    if (type === 'ok') setTimeout(() => (el.style.display = 'none'), 3000);
+  }
+
+  // ============================================================
+
   // ============================================================
   function fmtTime(t) {
     const [h, m] = t.split(':').map(Number);
