@@ -794,10 +794,16 @@
       // Update the nav avatar immediately — don't wait for onAuthStateChange
       if (data.user) updateNavForAuth(data.user);
 
+      // Check whitelist — suppliers go straight to their dashboard, nobody else
+      const supplier = await isSupplierEmail(email);
+      if (supplier) {
+        window.location.href = 'supplier-dashboard.html';
+        return;
+      }
+
       okEl.textContent   = '✓ Account created! Check your email to confirm.';
       okEl.style.display = 'block';
 
-      // Auto-navigate to planner after short delay
       setTimeout(() => go('planner'), 1800);
 
     } catch (err) {
@@ -852,13 +858,14 @@
       okEl.textContent   = '✓ Signed in! Redirecting…';
       okEl.style.display = 'block';
 
-      // Stealth supplier check — redirect to dashboard if whitelisted
+      // Stealth supplier check — redirect to dashboard if whitelisted, stop there
       const supplier = await isSupplierEmail(email);
       if (supplier) {
         window.location.href = 'supplier-dashboard.html';
-      } else {
-        setTimeout(() => go('planner'), 1000);
+        return;
       }
+
+      setTimeout(() => go('planner'), 1000);
 
     } catch (err) {
       errEl.textContent   = err.message || 'Invalid email or password.';
