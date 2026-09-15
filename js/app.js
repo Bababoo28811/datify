@@ -239,10 +239,18 @@
         categoryName: r.categories?.name || 'Other',
         vibe: r.vibe || '',
         price: Number(r.price) || 0,
+        // Percentage/conditional offers ("20% off") have no fixed price.
+        // Where this is set it must be shown INSTEAD of the price —
+        // otherwise a price of 0 renders as "Free", which is just wrong.
+        discountLabel: r.discount_label || null,
+        originalPrice: r.original_price != null ? Number(r.original_price) : null,
+        sourceUrl: r.source_url || null,
+        imageIsStock: !!r.image_is_stock,
         location: r.location || 'Singapore',
         tags: [r.vibe].filter(Boolean),
         desc: r.description || '',
         best: r.ongoing ? 'Ongoing' : (r.start_date || 'Anytime'),
+        endDate: r.end_date || null,
         dur: 60,
         image: r.image_url || null,
         bg: '#FFF0F2',
@@ -254,6 +262,19 @@
       CATEGORIES = [];
     }
     renderCategoryChips();
+  }
+
+  // Single source of truth for how a deal's price is shown. A deal is
+  // either fixed-price, or a discount offer with no computable price —
+  // never "Free" unless it genuinely costs nothing.
+  function priceLabel(d) {
+    if (d.discountLabel) return escHtmlApp(d.discountLabel);
+    if (d.price === 0)   return 'Free';
+    return '$' + d.price;
+  }
+
+  function hasFixedPrice(d) {
+    return !d.discountLabel;
   }
 
   function renderCategoryChips() {
@@ -271,8 +292,12 @@
   // vibe yet (early on, before suppliers have tagged much).
   function pickItineraryStops(vibeKey, budget) {
     const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[vibeKey] || 'Romantic';
-    let pool = DEALS.filter(d => (d.vibe || '').toLowerCase() === vibeLabel.toLowerCase());
-    if (pool.length === 0) pool = DEALS.slice();
+    // Discount-type deals ("20% off") have no computable price, so including
+    // them would silently understate the itinerary total. Keep them out of
+    // auto-generated plans rather than costing them at $0.
+    const costable = DEALS.filter(hasFixedPrice);
+    let pool = costable.filter(d => (d.vibe || '').toLowerCase() === vibeLabel.toLowerCase());
+    if (pool.length === 0) pool = costable.slice();
 
     const sorted = pool.slice().sort((a, b) => a.price - b.price);
     const chosen = [];
@@ -568,7 +593,7 @@
           <div class="deal-name">${escHtmlApp(d.name)}</div>
           <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
           <div class="deal-footer">
-            <div class="deal-price">${d.price === 0 ? '<span>Free</span>' : '$' + d.price + ' <span>pp</span>'}</div>
+            <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : '$' + d.price + ' <span>pp</span>')}${d.originalPrice ? ` <span class="deal-price-was">$${d.originalPrice}</span>` : ''}</div>
             <button class="deal-cta" onclick="event.stopPropagation();go('planner')">Add to plan</button>
           </div>
         </div>
@@ -631,10 +656,13 @@
           <div class="detail-meta-item"><div class="detail-meta-label">Best time</div><div class="detail-meta-val">${escHtmlApp(d.best)}</div></div>
           <div class="detail-meta-item"><div class="detail-meta-label">Location</div><div class="detail-meta-val">${escHtmlApp(d.location)}</div></div>
         </div>
+        ${d.imageIsStock ? `<p class="detail-source">Photo is a stock image for illustration — not a photo of this venue.</p>` : ''}
+        ${d.sourceUrl ? `<p class="detail-source">Deal details via <a href="${escHtmlApp(d.sourceUrl)}" target="_blank" rel="noopener noreferrer">the original listing ↗</a>. Always check current terms with the merchant before you go.</p>` : ''}
       </div>
       <div class="detail-sidebar">
-        <div class="sidebar-price">${d.price === 0 ? 'Free' : '$' + d.price}</div>
-        <div class="sidebar-price-sub">${d.price > 0 ? 'per person' : ''}</div>
+        <div class="sidebar-price">${priceLabel(d)}</div>
+        <div class="sidebar-price-sub">${d.discountLabel ? '' : (d.price > 0 ? 'per person' : '')}${d.originalPrice ? ` · usually $${d.originalPrice}` : ''}</div>
+        ${d.endDate ? `<div class="sidebar-expiry">Ends ${escHtmlApp(d.endDate)}</div>` : ''}
         <button class="sidebar-btn primary" onclick="go('planner')">Add to plan</button>
         <button class="sidebar-btn secondary" id="save-deal-btn" data-deal-id="${d.id}" onclick="toggleSaveDeal('${d.id}', this)">${SAVED_DEAL_IDS.has(d.id) ? 'Saved ✓' : 'Save deal ♡'}</button>
       </div>`;
@@ -722,7 +750,7 @@
           <div class="swipe-card-info">
             <div class="swipe-card-name">${escHtmlApp(d.name)}</div>
             <div class="swipe-card-loc">📍 ${escHtmlApp(d.location)}</div>
-            <div class="swipe-card-price">${d.price === 0 ? 'Free' : '$' + d.price + ' pp'}</div>
+            <div class="swipe-card-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? 'Free' : '$' + d.price + ' pp')}</div>
           </div>
         </div>`;
     }).join('');
