@@ -24,7 +24,7 @@ async function initSupplierDashboard() {
   try {
     ({ data, error: whitelistError } = await db
       .from('supplier_whitelist')
-      .select('email, business_name')
+      .select('email, business_name, seller_id')
       .eq('email', session.user.email)
       .single());
   } catch (err) {
@@ -39,9 +39,14 @@ async function initSupplierDashboard() {
     return;
   }
 
-  // Show user email in nav
+  // Show user email + Seller ID in nav
   const navEl = document.getElementById('nav-user-email');
   if (navEl) navEl.textContent = session.user.email;
+  const sellerIdEl = document.getElementById('nav-seller-id');
+  if (sellerIdEl && data.seller_id) {
+    sellerIdEl.textContent = data.seller_id;
+    sellerIdEl.style.display = '';
+  }
 
   // Load data — failures here shouldn't leave the page stuck on
   // "Loading…" forever with no explanation.
@@ -170,7 +175,7 @@ let editingId = null;
 
 async function loadMyDeals() {
   const tbody = document.getElementById('deals-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>';
 
   const { data: { session } } = await db.auth.getSession();
 
@@ -181,7 +186,7 @@ async function loadMyDeals() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--red)">${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--red)">${error.message}</td></tr>`;
     return;
   }
 
@@ -189,7 +194,7 @@ async function loadMyDeals() {
   updateStats();
 
   if (allDeals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--muted)">No deals yet — add your first one!</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted)">No deals yet — add your first one!</td></tr>';
     return;
   }
 
@@ -203,6 +208,10 @@ async function loadMyDeals() {
       ? `<div class="deal-thumb"><img src="${escHtml(d.image_url)}" alt=""></div>`
       : `<div class="deal-thumb">🎁</div>`;
 
+    const approval    = d.status || 'pending';
+    const approvalCls = approval === 'approved' ? 'approval-approved' : approval === 'rejected' ? 'approval-rejected' : 'approval-pending';
+    const approvalTxt = approval === 'approved' ? 'Approved' : approval === 'rejected' ? 'Rejected' : 'Pending review';
+
     return `<tr>
       <td>${thumb}</td>
       <td style="font-weight:600;max-width:180px">${escHtml(d.title)}</td>
@@ -210,6 +219,7 @@ async function loadMyDeals() {
       <td>$${Number(d.price).toFixed(2)}</td>
       <td style="font-size:13px;color:var(--muted)">${escHtml(endsTxt)}</td>
       <td><span class="status-pill ${statusCls}">${statusTxt}</span></td>
+      <td><span class="status-pill ${approvalCls}">${approvalTxt}</span></td>
       <td>
         <div class="td-actions">
           <button class="btn-sm-outline" onclick="startEdit('${d.id}')">Edit</button>

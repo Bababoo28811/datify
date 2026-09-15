@@ -7,6 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/supplier.css">
   <link rel="icon" type="image/svg+xml" href="assets/img/logo-mark.svg">
+  <script src="js/theme.js"></script>
 </head>
 <body>
 
@@ -19,6 +20,8 @@
   </a>
   <span class="nav-badge">Supplier Dashboard</span>
   <div class="nav-right">
+    <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+    <span class="nav-user" id="nav-seller-id" style="display:none"></span>
     <span class="nav-user" id="nav-user-email"></span>
     <button class="btn-logout" onclick="supplierLogout()">Sign out</button>
   </div>
@@ -61,6 +64,7 @@
           <button class="btn-sm-outline" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel</button>
         </div>
         <div class="card-body">
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Every new deal — and any edit to an existing one — goes through a quick review before it shows up publicly. You'll see its status in the table on the right.</p>
           <form id="deal-form" onsubmit="submitDeal(event)">
             <input type="hidden" id="editing-id">
 
@@ -176,11 +180,12 @@
               <th>Price</th>
               <th>Ends</th>
               <th>Status</th>
+              <th>Approval</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="deals-tbody">
-            <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>
           </tbody>
         </table>
       </div>

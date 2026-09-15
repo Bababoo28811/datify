@@ -17,6 +17,7 @@
   // ============================================================
   db.auth.onAuthStateChange((event, session) => {
     updateNavForAuth(session?.user ?? null);
+    loadSavedDeals().then(refreshSaveButtons);
   });
 
   function updateNavForAuth(user) {
@@ -300,6 +301,71 @@
   let prevPage = 'home';
   let activeCat = 'all';
   let activePriceF = null;
+  let SAVED_DEAL_IDS = new Set();
+  let currentSavedTab = 'deals';
+  let currentContactTab = 'support';
+  let swipeDeals = [];
+  let swipeIndex = 0;
+
+  // ============================================================
+  // SAVED DEALS (shortlist) — persisted per-user in Supabase
+  // ============================================================
+  async function loadSavedDeals() {
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      if (!session) { SAVED_DEAL_IDS = new Set(); return; }
+      const { data, error } = await db.from('saved_deals').select('deal_id').eq('user_id', session.user.id);
+      if (error) throw error;
+      SAVED_DEAL_IDS = new Set((data || []).map(r => r.deal_id));
+    } catch (err) {
+      console.error('Failed to load saved deals:', err);
+      SAVED_DEAL_IDS = new Set();
+    }
+  }
+
+  async function toggleSaveDeal(dealId, btnEl) {
+    let session;
+    try {
+      ({ data: { session } } = await db.auth.getSession());
+    } catch (err) {
+      console.error('Session check failed:', err);
+      return;
+    }
+    if (!session) {
+      go('login');
+      return;
+    }
+    const isSaved = SAVED_DEAL_IDS.has(dealId);
+    try {
+      if (isSaved) {
+        const { error } = await db.from('saved_deals').delete()
+          .eq('user_id', session.user.id).eq('deal_id', dealId);
+        if (error) throw error;
+        SAVED_DEAL_IDS.delete(dealId);
+      } else {
+        const { error } = await db.from('saved_deals').insert({ user_id: session.user.id, deal_id: dealId });
+        if (error) throw error;
+        SAVED_DEAL_IDS.add(dealId);
+      }
+    } catch (err) {
+      console.error('Failed to update saved deal:', err);
+      return;
+    }
+    refreshSaveButtons();
+  }
+
+  function refreshSaveButtons() {
+    document.querySelectorAll('.deal-save').forEach(el => {
+      el.classList.toggle('saved', SAVED_DEAL_IDS.has(el.dataset.dealId));
+    });
+    const detailBtn = document.getElementById('save-deal-btn');
+    if (detailBtn && detailBtn.dataset.dealId) {
+      const saved = SAVED_DEAL_IDS.has(detailBtn.dataset.dealId);
+      detailBtn.textContent = saved ? 'Saved ✓' : 'Save deal ♡';
+      detailBtn.style.borderColor = saved ? 'var(--green)' : '';
+      detailBtn.style.color       = saved ? 'var(--green)' : '';
+    }
+  }
 
   // ============================================================
   // NAVIGATION — single clean function, no overwriting
@@ -316,9 +382,18 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     // Side effects per page
-    if (page === 'saved')   buildSaved();
+    if (page === 'saved')   { buildSavedDeals(); buildSavedPlansList(); }
     if (page === 'explore') buildExplore(activeCat, activePriceF);
     if (page === 'profile') buildProfile();
+    if (page === 'swipe')   buildSwipe();
+  }
+
+  function switchSavedTab(tab, btn) {
+    currentSavedTab = tab;
+    document.querySelectorAll('.saved-tab-btn').forEach(b => b.classList.remove('on'));
+    if (btn) btn.classList.add('on');
+    document.getElementById('saved-deals-panel').style.display = tab === 'deals' ? '' : 'none';
+    document.getElementById('saved-plans-panel').style.display = tab === 'plans' ? '' : 'none';
   }
 
   function setVibeAndGo(v) {
@@ -479,6 +554,7 @@
     const media = d.image
       ? `<img src="${escHtmlApp(d.image)}" style="width:100%;height:100%;object-fit:cover">`
       : `<span style="font-size:52px">${d.emoji}</span>`;
+    const savedCls = SAVED_DEAL_IDS.has(d.id) ? ' saved' : '';
     return `
       <div class="deal-card" onclick="openDeal('${d.id}')">
         <div class="deal-img" style="background:${d.bg}">
@@ -486,7 +562,7 @@
           <div class="deal-img-overlay">
             ${d.tags.map(t => `<span class="deal-tag ${t==='Romantic'||t==='Premium' ? 'pink' : ''}">${escHtmlApp(t)}</span>`).join('')}
           </div>
-          <div class="deal-save" onclick="event.stopPropagation();this.classList.toggle('saved')">♡</div>
+          <div class="deal-save${savedCls}" data-deal-id="${d.id}" onclick="event.stopPropagation();toggleSaveDeal('${d.id}', this)">♡</div>
         </div>
         <div class="deal-body">
           <div class="deal-name">${escHtmlApp(d.name)}</div>
@@ -560,20 +636,31 @@
         <div class="sidebar-price">${d.price === 0 ? 'Free' : '$' + d.price}</div>
         <div class="sidebar-price-sub">${d.price > 0 ? 'per person' : ''}</div>
         <button class="sidebar-btn primary" onclick="go('planner')">Add to plan</button>
-        <button class="sidebar-btn secondary" id="save-deal-btn" onclick="toggleSaveDeal(this)">Save deal ♡</button>
+        <button class="sidebar-btn secondary" id="save-deal-btn" data-deal-id="${d.id}" onclick="toggleSaveDeal('${d.id}', this)">${SAVED_DEAL_IDS.has(d.id) ? 'Saved ✓' : 'Save deal ♡'}</button>
       </div>`;
+    if (SAVED_DEAL_IDS.has(d.id)) {
+      const btn = document.getElementById('save-deal-btn');
+      btn.style.borderColor = 'var(--green)';
+      btn.style.color       = 'var(--green)';
+    }
     go('detail');
   }
 
-  function toggleSaveDeal(btn) {
-    const saved = btn.textContent.includes('✓');
-    btn.textContent = saved ? 'Save deal ♡' : 'Saved ✓';
-    btn.style.borderColor = saved ? '' : 'var(--green)';
-    btn.style.color       = saved ? '' : 'var(--green)';
+  function buildSavedDeals() {
+    const el = document.getElementById('saved-deals-panel');
+    const saved = DEALS.filter(d => SAVED_DEAL_IDS.has(d.id));
+    el.innerHTML = saved.length
+      ? `<div class="deals-grid">${saved.map(d => dealCardHTML(d)).join('')}</div>`
+      : `<div class="empty-state">
+          <div class="es-icon">🤍</div>
+          <h3>No shortlisted deals yet</h3>
+          <p>Heart a deal on Explore, or try Swipe to build your shortlist.</p>
+          <button class="btn-pink" onclick="go('swipe')">Try Swipe →</button>
+        </div>`;
   }
 
-  function buildSaved() {
-    const el = document.getElementById('saved-list');
+  function buildSavedPlansList() {
+    const el = document.getElementById('saved-plans-panel');
     if (savedPlans.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
@@ -595,6 +682,164 @@
             <div class="spc-stops">total</div>
           </div>
         </div>`).join('');
+    }
+  }
+
+  // ============================================================
+  // SWIPE — Tinder-style card browsing.
+  // Right / swipe-right = shortlist (saved_deals). Left = pass
+  // (client-side only for this session; nothing is stored for a pass).
+  // ============================================================
+  function buildSwipe() {
+    swipeDeals = DEALS.filter(d => !SAVED_DEAL_IDS.has(d.id));
+    swipeIndex = 0;
+    renderSwipeStack();
+  }
+
+  function renderSwipeStack() {
+    const stack = document.getElementById('swipe-stack');
+    if (!stack) return;
+    if (swipeIndex >= swipeDeals.length) {
+      stack.innerHTML = `<div class="empty-state">
+          <div class="es-icon">🎉</div>
+          <h3>That's everything for now</h3>
+          <p>Check back later for new deals, or view what you've shortlisted.</p>
+          <button class="btn-pink" onclick="go('saved')">View Saved →</button>
+        </div>`;
+      return;
+    }
+    // Render current + next card (next sits behind, for a subtle stack effect)
+    const cur  = swipeDeals[swipeIndex];
+    const next = swipeDeals[swipeIndex + 1];
+    stack.innerHTML = [next, cur].filter(Boolean).map((d, i) => {
+      const isTop = d === cur;
+      const media = d.image
+        ? `<img src="${escHtmlApp(d.image)}" style="width:100%;height:100%;object-fit:cover">`
+        : `<span style="font-size:64px">${d.emoji}</span>`;
+      return `
+        <div class="swipe-card${isTop ? ' swipe-card-top' : ''}" id="${isTop ? 'swipe-card-top' : 'swipe-card-behind'}" style="background:${d.bg}">
+          ${media}
+          <div class="swipe-card-info">
+            <div class="swipe-card-name">${escHtmlApp(d.name)}</div>
+            <div class="swipe-card-loc">📍 ${escHtmlApp(d.location)}</div>
+            <div class="swipe-card-price">${d.price === 0 ? 'Free' : '$' + d.price + ' pp'}</div>
+          </div>
+        </div>`;
+    }).join('');
+    attachSwipeDrag(document.getElementById('swipe-card-top'));
+  }
+
+  function attachSwipeDrag(card) {
+    if (!card) return;
+    let startX = 0, curX = 0, dragging = false;
+    card.style.transition = 'none';
+
+    function onDown(e) {
+      dragging = true;
+      startX = (e.touches ? e.touches[0].clientX : e.clientX);
+      card.style.transition = 'none';
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      curX = (e.touches ? e.touches[0].clientX : e.clientX) - startX;
+      card.style.transform = `translateX(${curX}px) rotate(${curX / 18}deg)`;
+    }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      const threshold = 110;
+      if (curX > threshold) {
+        swipeCommit('right');
+      } else if (curX < -threshold) {
+        swipeCommit('left');
+      } else {
+        card.style.transition = 'transform 0.25s';
+        card.style.transform = 'translateX(0) rotate(0)';
+      }
+      curX = 0;
+    }
+
+    card.addEventListener('mousedown', onDown);
+    card.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('mousemove', onMove);
+    card.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('mouseup', onUp);
+    card.addEventListener('touchend', onUp);
+  }
+
+  function swipeButton(direction) {
+    swipeCommit(direction);
+  }
+
+  function swipeCommit(direction) {
+    const card = document.getElementById('swipe-card-top');
+    const deal = swipeDeals[swipeIndex];
+    if (card) {
+      card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      card.style.transform = `translateX(${direction === 'right' ? 600 : -600}px) rotate(${direction === 'right' ? 25 : -25}deg)`;
+      card.style.opacity = '0';
+    }
+    if (direction === 'right' && deal) {
+      toggleSaveDeal(deal.id);
+    }
+    swipeIndex++;
+    setTimeout(renderSwipeStack, 220);
+  }
+
+  // ============================================================
+  // CONTACT / PARTNERSHIP
+  // ============================================================
+  function switchContactTab(tab, btn) {
+    currentContactTab = tab;
+    document.querySelectorAll('.contact-tab-btn').forEach(b => b.classList.remove('on'));
+    if (btn) btn.classList.add('on');
+    const submitBtn = document.getElementById('contact-submit-btn');
+    if (submitBtn) submitBtn.textContent = tab === 'partnership' ? 'Send partnership request' : 'Send message';
+  }
+
+  async function submitContact(e) {
+    e.preventDefault();
+    const btn    = document.getElementById('contact-submit-btn');
+    const errEl  = document.getElementById('contact-error');
+    const okEl   = document.getElementById('contact-success');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    const name    = document.getElementById('contact-name').value.trim();
+    const email   = document.getElementById('contact-email').value.trim();
+    const message = document.getElementById('contact-message').value.trim();
+
+    if (!name || !email || !message) {
+      errEl.textContent = 'Please fill in your name, email, and message.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent = 'Please enter a valid email address.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+      const { error } = await db.from('contact_messages').insert({
+        type: currentContactTab,
+        name,
+        email,
+        message
+      });
+      if (error) throw error;
+      okEl.textContent = "✓ Thanks — we'll get back to you soon.";
+      okEl.style.display = 'block';
+      document.getElementById('contact-form').reset();
+    } catch (err) {
+      errEl.textContent = err.message || 'Something went wrong. Please try again.';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = currentContactTab === 'partnership' ? 'Send partnership request' : 'Send message';
     }
   }
 

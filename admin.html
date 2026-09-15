@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Datify — Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/supplier.css">
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo-mark.svg">
+  <script src="js/theme.js"></script>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-mark">
+      <svg viewBox="0 0 64 64"><circle cx="26" cy="32" r="18" fill="none" stroke="#E8526A" stroke-width="4"/><circle cx="40" cy="32" r="18" fill="#FF6B81"/></svg>
+    </div>
+    <span class="nav-brand">Datify</span>
+  </a>
+  <span class="nav-badge">Admin</span>
+  <div class="nav-right">
+    <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+    <span class="nav-user" id="nav-user-email"></span>
+    <button class="btn-logout" onclick="adminLogout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="page-head">
+    <h1>Deal Approval Queue</h1>
+    <p>Review deals before they go live on Datify</p>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val" id="stat-pending" style="color:var(--pink)">—</div><div class="stat-lbl">Pending review</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-approved">—</div><div class="stat-lbl">Approved</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-rejected">—</div><div class="stat-lbl">Rejected</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Deals</h2>
+      <div style="display:flex;gap:8px">
+        <select id="admin-filter" onchange="loadAdminDeals()" style="border:1.5px solid var(--border);border-radius:10px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:13px;background:var(--white);color:var(--text)">
+          <option value="pending" selected>Pending review</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="all">All</option>
+        </select>
+        <button class="btn-sm" onclick="loadAdminDeals()" style="font-size:12px;padding:6px 14px">Refresh</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Img</th>
+            <th>Title</th>
+            <th>Supplier</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="admin-deals-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="admin-msg" class="msg" style="margin:0 24px 16px"></div>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

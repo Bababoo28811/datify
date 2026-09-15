@@ -10,6 +10,7 @@
 
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" type="image/svg+xml" href="assets/img/logo-mark.svg">
+  <script src="js/theme.js"></script>
 </head>
 <body>
 
@@ -24,10 +25,13 @@
     <div class="nav-links">
       <button class="nav-link active" data-page="home"    onclick="go('home')">Home</button>
       <button class="nav-link"        data-page="explore" onclick="go('explore')">Explore Deals</button>
+      <button class="nav-link"        data-page="swipe"   onclick="go('swipe')">Swipe</button>
       <button class="nav-link"        data-page="planner" onclick="go('planner')">Plan a Date</button>
-      <button class="nav-link"        data-page="saved"   onclick="go('saved')">Saved Plans</button>
+      <button class="nav-link"        data-page="saved"   onclick="go('saved')">Saved</button>
+      <button class="nav-link"        data-page="contact" onclick="go('contact')">Contact</button>
     </div>
     <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
       <span id="nav-auth-area">
         <button class="btn-ghost" onclick="go('login')">Sign in</button>
         <button class="btn-pink"  onclick="go('signup')">Join free</button>
@@ -40,8 +44,10 @@
   <div class="nav-mobile-menu" id="nav-mobile-menu">
     <button class="nav-link active" data-page="home"    onclick="go('home');closeMobileMenu()">Home</button>
     <button class="nav-link"        data-page="explore" onclick="go('explore');closeMobileMenu()">Explore Deals</button>
+    <button class="nav-link"        data-page="swipe"   onclick="go('swipe');closeMobileMenu()">Swipe</button>
     <button class="nav-link"        data-page="planner" onclick="go('planner');closeMobileMenu()">Plan a Date</button>
-    <button class="nav-link"        data-page="saved"   onclick="go('saved');closeMobileMenu()">Saved Plans</button>
+    <button class="nav-link"        data-page="saved"   onclick="go('saved');closeMobileMenu()">Saved</button>
+    <button class="nav-link"        data-page="contact" onclick="go('contact');closeMobileMenu()">Contact</button>
     <div class="nav-mobile-auth" id="nav-auth-area-mobile">
       <button class="btn-ghost" onclick="go('login');closeMobileMenu()">Sign in</button>
       <button class="btn-pink"  onclick="go('signup');closeMobileMenu()">Join free</button>
@@ -297,10 +303,61 @@
   <div id="page-saved" class="page">
     <div class="saved-wrap">
       <div class="saved-header">
-        <h1>Saved <span style="color:var(--pink)">plans</span></h1>
-        <p>Your curated date itineraries, ready to go</p>
+        <h1>Your <span style="color:var(--pink)">saved</span></h1>
+        <p>Shortlisted deals and saved date itineraries</p>
       </div>
-      <div id="saved-list"></div>
+      <div class="saved-tabs">
+        <button class="saved-tab-btn on" onclick="switchSavedTab('deals', this)">Deals</button>
+        <button class="saved-tab-btn"    onclick="switchSavedTab('plans', this)">Plans</button>
+      </div>
+      <div id="saved-deals-panel"></div>
+      <div id="saved-plans-panel" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- SWIPE -->
+  <div id="page-swipe" class="page">
+    <div class="swipe-wrap">
+      <div class="swipe-header">
+        <h1>Swipe <span style="color:var(--pink)">deals</span></h1>
+        <p>Right to shortlist, left to pass</p>
+      </div>
+      <div class="swipe-stack" id="swipe-stack"></div>
+      <div class="swipe-actions">
+        <button class="swipe-btn swipe-btn-pass" onclick="swipeButton('left')" title="Pass" aria-label="Pass">✕</button>
+        <button class="swipe-btn swipe-btn-like" onclick="swipeButton('right')" title="Shortlist" aria-label="Shortlist">♡</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTACT -->
+  <div id="page-contact" class="page">
+    <div class="contact-wrap">
+      <div class="contact-header">
+        <h1>Get in <span style="color:var(--pink)">touch</span></h1>
+        <p>Questions, feedback, or want to list your deals with us?</p>
+      </div>
+      <div class="contact-tabs">
+        <button class="contact-tab-btn on" onclick="switchContactTab('support', this)">Customer support</button>
+        <button class="contact-tab-btn"    onclick="switchContactTab('partnership', this)">Partner with us</button>
+      </div>
+      <form class="contact-form" id="contact-form" onsubmit="submitContact(event)">
+        <div id="contact-error"   class="auth-error"></div>
+        <div id="contact-success" class="auth-success"></div>
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input class="form-input" id="contact-name" type="text" placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="contact-email" type="email" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea class="form-input" id="contact-message" rows="5" placeholder="How can we help?"></textarea>
+        </div>
+        <button class="btn-full" id="contact-submit-btn" type="submit">Send message</button>
+      </form>
     </div>
   </div>
 
