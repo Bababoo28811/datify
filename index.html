@@ -27,11 +27,26 @@
       <button class="nav-link"        data-page="planner" onclick="go('planner')">Plan a Date</button>
       <button class="nav-link"        data-page="saved"   onclick="go('saved')">Saved Plans</button>
     </div>
-    <div class="nav-right" id="nav-auth-area">
-      <button class="btn-ghost" onclick="go('login')">Sign in</button>
-      <button class="btn-pink"  onclick="go('signup')">Join free</button>
+    <div class="nav-right">
+      <span id="nav-auth-area">
+        <button class="btn-ghost" onclick="go('login')">Sign in</button>
+        <button class="btn-pink"  onclick="go('signup')">Join free</button>
+      </span>
+      <button class="nav-hamburger" id="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
     </div>
   </nav>
+  <div class="nav-mobile-menu" id="nav-mobile-menu">
+    <button class="nav-link active" data-page="home"    onclick="go('home');closeMobileMenu()">Home</button>
+    <button class="nav-link"        data-page="explore" onclick="go('explore');closeMobileMenu()">Explore Deals</button>
+    <button class="nav-link"        data-page="planner" onclick="go('planner');closeMobileMenu()">Plan a Date</button>
+    <button class="nav-link"        data-page="saved"   onclick="go('saved');closeMobileMenu()">Saved Plans</button>
+    <div class="nav-mobile-auth" id="nav-auth-area-mobile">
+      <button class="btn-ghost" onclick="go('login');closeMobileMenu()">Sign in</button>
+      <button class="btn-pink"  onclick="go('signup');closeMobileMenu()">Join free</button>
+    </div>
+  </div>
 
   <!-- HOME -->
   <div id="page-home" class="page active">
@@ -258,15 +273,12 @@
       </div>
       <div class="filter-bar">
         <span class="filter-label">Filter:</span>
-        <button class="filter-chip on" onclick="filterDeals('all',this)">All</button>
-        <button class="filter-chip"    onclick="filterDeals('food',this)">Food</button>
-        <button class="filter-chip"    onclick="filterDeals('activity',this)">Activities</button>
-        <button class="filter-chip"    onclick="filterDeals('drinks',this)">Drinks</button>
-        <button class="filter-chip"    onclick="filterDeals('outdoor',this)">Outdoor</button>
+        <button class="filter-chip filter-chip-cat on" onclick="filterDeals('all',this)">All</button>
+        <span id="category-chips" style="display:contents"></span>
         <span class="filter-label" style="margin-left:8px">Price:</span>
-        <button class="filter-chip" onclick="filterPrice('budget',this)">Under $20</button>
-        <button class="filter-chip" onclick="filterPrice('mid',this)">$20–$60</button>
-        <button class="filter-chip" onclick="filterPrice('premium',this)">$60+</button>
+        <button class="filter-chip filter-chip-price" onclick="filterPrice('budget',this)">Under $20</button>
+        <button class="filter-chip filter-chip-price" onclick="filterPrice('mid',this)">$20–$60</button>
+        <button class="filter-chip filter-chip-price" onclick="filterPrice('premium',this)">$60+</button>
       </div>
       <div class="explore-grid" id="explore-grid"></div>
     </div>

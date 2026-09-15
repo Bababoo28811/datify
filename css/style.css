@@ -26,6 +26,21 @@
     .nav-link:hover{background:var(--pink-light);color:var(--pink)}
     .nav-link.active{color:var(--pink);background:var(--pink-light)}
     .nav-right{display:flex;gap:8px;align-items:center}
+    .nav-hamburger{display:none;flex-direction:column;justify-content:center;gap:5px;width:36px;height:36px;border:none;background:transparent;cursor:pointer;padding:0}
+    .nav-hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px;transition:transform 0.2s,opacity 0.2s}
+    .nav-hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+    .nav-hamburger.open span:nth-child(2){opacity:0}
+    .nav-hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+    .nav-mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:white;border-bottom:1px solid var(--border);box-shadow:var(--shadow);z-index:199;padding:12px 16px 20px;flex-direction:column;gap:4px}
+    .nav-mobile-menu.open{display:flex}
+    .nav-mobile-menu .nav-link{width:100%;text-align:left;padding:12px 14px}
+    .nav-mobile-menu .nav-mobile-auth{display:flex;gap:8px;margin-top:10px;padding-top:14px;border-top:1px solid var(--border)}
+    .nav-mobile-menu .nav-mobile-auth button{flex:1}
+    @media(max-width:800px){
+      .nav-links{display:none}
+      .nav-hamburger{display:flex}
+      #nav-auth-area{display:none}
+    }
     .btn-ghost{padding:8px 18px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text);font-family:'Inter',sans-serif;transition:all 0.18s}
     .btn-ghost:hover{border-color:var(--pink);color:var(--pink)}
     .btn-pink{padding:9px 20px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;background:var(--pink);color:white;font-family:'Inter',sans-serif;transition:all 0.18s}

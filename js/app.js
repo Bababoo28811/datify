@@ -9,24 +9,40 @@
   });
 
   function updateNavForAuth(user) {
-    const area = document.getElementById('nav-auth-area');
+    const area       = document.getElementById('nav-auth-area');
+    const areaMobile = document.getElementById('nav-auth-area-mobile');
+    let html;
     if (user) {
       const meta      = user.user_metadata || {};
       const firstName = meta.first_name || '';
       const lastName  = meta.last_name  || '';
       const fullName  = (firstName + ' ' + lastName).trim() || user.email.split('@')[0];
       const initials  = (firstName ? firstName[0] : (user.email[0] || '?')).toUpperCase();
-      area.innerHTML = `
-        <button class="nav-user-btn" onclick="go('profile')" title="My profile">
+      html = `
+        <button class="nav-user-btn" onclick="go('profile');closeMobileMenu()" title="My profile">
           <div class="nav-user-avatar">${initials}</div>
           <span>${fullName}</span>
           <span class="nav-user-chevron">▾</span>
         </button>`;
     } else {
-      area.innerHTML = `
-        <button class="btn-ghost" onclick="go('login')">Sign in</button>
-        <button class="btn-pink"  onclick="go('signup')">Join free</button>`;
+      html = `
+        <button class="btn-ghost" onclick="go('login');closeMobileMenu()">Sign in</button>
+        <button class="btn-pink"  onclick="go('signup');closeMobileMenu()">Join free</button>`;
     }
+    if (area)       area.innerHTML       = html;
+    if (areaMobile) areaMobile.innerHTML = html;
+  }
+
+  // ============================================================
+  // MOBILE NAV
+  // ============================================================
+  function toggleMobileMenu() {
+    document.getElementById('nav-mobile-menu').classList.toggle('open');
+    document.getElementById('nav-hamburger').classList.toggle('open');
+  }
+  function closeMobileMenu() {
+    document.getElementById('nav-mobile-menu').classList.remove('open');
+    document.getElementById('nav-hamburger').classList.remove('open');
   }
 
   // ============================================================
@@ -171,28 +187,102 @@
   // ============================================================
   // APP DATA
   // ============================================================
-  const DEALS = [
-    {id:1, name:'Sunset Garden Walk',      type:'outdoor',  emoji:'🌿', price:0,  location:'Botanic Gardens',     tags:['Free','Romantic'],  desc:'Stroll through 80 hectares of lush gardens as the sun dips below the horizon.',                        best:'5–7 PM',   dur:50,  bg:'#E8F5E9'},
-    {id:2, name:'Oysters & Champagne',     type:'food',     emoji:'🦪', price:38, location:'The Clifford Pier',   tags:['Premium','Romantic'],desc:'Fresh-shucked oysters with crisp champagne overlooking the bay.',                                       best:'7–9 PM',   dur:60,  bg:'#FFF0F2'},
-    {id:3, name:'Night River Cruise',      type:'activity', emoji:'⛵', price:18, location:'Clarke Quay Jetty',   tags:['Unique','Views'],    desc:'A 45-minute bumboat cruise along the Singapore River at night.',                                         best:'8–10 PM',  dur:50,  bg:'#E3F2FD'},
-    {id:4, name:'Speakeasy Cocktail Bar',  type:'drinks',   emoji:'🥃', price:24, location:'Ann Siang Hill',      tags:['Trendy','Romantic'], desc:'Hidden behind an unmarked door — award-winning cocktails in an intimate, moody atmosphere.',              best:'9–11 PM',  dur:60,  bg:'#FFF3E0'},
-    {id:5, name:'Salsa Night',             type:'activity', emoji:'💃', price:14, location:'Zouk, Clarke Quay',   tags:['Fun','Active'],      desc:'Learn salsa basics with a pro instructor then hit the floor.',                                           best:'9–11 PM',  dur:90,  bg:'#F3E5F5'},
-    {id:6, name:'Artisan Ice Cream Trail', type:'food',     emoji:'🍦', price:8,  location:'Haji Lane',           tags:['Cheap','Fun'],       desc:'Hop between five cult ice cream shops along vibrant Haji Lane.',                                         best:'Any time', dur:40,  bg:'#FFF8E1'},
-    {id:7, name:'Rooftop Bar — 1-Altitude',type:'drinks',   emoji:'🍸', price:28, location:'Raffles Place',       tags:['Romantic','Views'],  desc:"Singapore's highest alfresco bar. Cocktails with a 360° panorama of the city skyline.",                  best:'6–9 PM',   dur:60,  bg:'#E8EAF6'},
-    {id:8, name:'Pottery for Two',         type:'activity', emoji:'🏺', price:45, location:'Tiong Bahru Studio',  tags:['Unique','Creative'], desc:'A hands-on wheel-throwing class for couples. Get messy, laugh a lot.',                                   best:'Daytime',  dur:90,  bg:'#EFEBE9'},
-    {id:9, name:'Omakase Dinner',          type:'food',     emoji:'🍣', price:88, location:'Duxton Hill',         tags:['Premium','Foodie'],  desc:'A 12-course chef-curated Japanese menu that changes daily.',                                             best:'7–10 PM',  dur:120, bg:'#E0F2F1'},
-    {id:10,name:'Night Cycling',           type:'outdoor',  emoji:'🚲', price:12, location:'East Coast Park',     tags:['Active','Fun'],      desc:'Rent bikes and cruise 15km along the coast under the stars.',                                            best:'8–10 PM',  dur:80,  bg:'#F1F8E9'},
-    {id:11,name:'Cooking Class for Two',   type:'activity', emoji:'👨‍🍳',price:55, location:'Joo Chiat',           tags:['Unique','Foodie'],   desc:'Master Peranakan dishes with a local chef.',                                                             best:'Daytime',  dur:120, bg:'#FBE9E7'},
-    {id:12,name:'Tasting Menu Dinner',     type:'food',     emoji:'🥘', price:65, location:'Telok Ayer',          tags:['Premium','Romantic'],desc:'Modern European tasting menu in a restored shophouse.',                                                   best:'7–10 PM',  dur:110, bg:'#FCE4EC'},
-  ];
+  // ============================================================
+  // LIVE DEALS — loaded from Supabase (replaces the old hardcoded
+  // sample list). DEALS/CATEGORIES start empty and are populated by
+  // loadDealsAndCategories(), called once at boot (see INIT below).
+  // ============================================================
+  let DEALS = [];
+  let CATEGORIES = [];
 
-  const VIBES = {
-    romantic:   {name:'Romantic Evening', stops:[1,2,3,4],  travels:[{t:8,w:'ok'},{t:15,w:'warn'},{t:10,w:'ok'}]},
-    fun:        {name:'Fun Night Out',    stops:[6,5,4,7],  travels:[{t:6,w:'ok'},{t:12,w:'warn'},{t:8,w:'ok'}]},
-    adventurous:{name:'Adventurous Date', stops:[10,8,5,7], travels:[{t:22,w:'alert'},{t:14,w:'warn'},{t:10,w:'ok'}]},
-    chill:      {name:'Chill Evening',    stops:[1,6,4,3],  travels:[{t:5,w:'ok'},{t:8,w:'ok'},{t:12,w:'warn'}]},
-    foodie:     {name:'Foodie Tour',      stops:[6,9,7,4],  travels:[{t:6,w:'ok'},{t:10,w:'warn'},{t:8,w:'ok'}]},
-  };
+  function slugify(s) {
+    return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'other';
+  }
+
+  function escHtmlApp(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function loadDealsAndCategories() {
+    try {
+      const [catRes, dealRes] = await Promise.all([
+        db.from('categories').select('id, name').order('name'),
+        db.from('deals').select('*, categories(name)').order('created_at', { ascending: false })
+      ]);
+
+      CATEGORIES = catRes.data || [];
+
+      const today = new Date().toISOString().split('T')[0];
+      const rows  = (dealRes.data || []).filter(r => r.ongoing || !r.end_date || r.end_date >= today);
+
+      // NOTE: real deals have no stored duration, so every stop is
+      // scheduled as a flat 60 minutes for planner purposes — an
+      // estimate, not a fact from the supplier. Worth adding a real
+      // duration field to the supplier form later.
+      DEALS = rows.map(r => ({
+        id: r.id,
+        name: r.title,
+        type: slugify(r.categories?.name || 'other'),
+        categoryName: r.categories?.name || 'Other',
+        vibe: r.vibe || '',
+        price: Number(r.price) || 0,
+        location: r.location || 'Singapore',
+        tags: [r.vibe].filter(Boolean),
+        desc: r.description || '',
+        best: r.ongoing ? 'Ongoing' : (r.start_date || 'Anytime'),
+        dur: 60,
+        image: r.image_url || null,
+        bg: '#FFF0F2',
+        emoji: '🎁'
+      }));
+    } catch (err) {
+      console.error('Failed to load deals:', err);
+      DEALS = [];
+      CATEGORIES = [];
+    }
+    renderCategoryChips();
+  }
+
+  function renderCategoryChips() {
+    const el = document.getElementById('category-chips');
+    if (!el) return;
+    const seen = new Map();
+    CATEGORIES.forEach(c => seen.set(slugify(c.name), c.name));
+    el.innerHTML = Array.from(seen.entries()).map(([slug, name]) =>
+      `<button class="filter-chip filter-chip-cat" onclick="filterDeals('${slug}',this)">${escHtmlApp(name)}</button>`
+    ).join('');
+  }
+
+  // Picks up to 4 real deals matching the chosen vibe, staying near
+  // budget where possible. Falls back to any deals if none match the
+  // vibe yet (early on, before suppliers have tagged much).
+  function pickItineraryStops(vibeKey, budget) {
+    const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[vibeKey] || 'Romantic';
+    let pool = DEALS.filter(d => (d.vibe || '').toLowerCase() === vibeLabel.toLowerCase());
+    if (pool.length === 0) pool = DEALS.slice();
+
+    const sorted = pool.slice().sort((a, b) => a.price - b.price);
+    const chosen = [];
+    const usedCats = new Set();
+    let total = 0;
+
+    for (const d of sorted) {
+      if (chosen.length >= 4) break;
+      if (usedCats.has(d.type)) continue;
+      if (chosen.length > 0 && total + d.price > budget) continue;
+      chosen.push(d); usedCats.add(d.type); total += d.price;
+    }
+    if (chosen.length < 2) {
+      chosen.length = 0; total = 0;
+      for (const d of sorted) {
+        if (chosen.length >= 3) break;
+        if (chosen.length > 0 && total + d.price > budget) break;
+        chosen.push(d); total += d.price;
+      }
+    }
+    return chosen;
+  }
 
   let curVibe = 'romantic';
   let savedPlans = [];
@@ -256,7 +346,6 @@
   }
 
   function buildResults() {
-    const v      = VIBES[curVibe] || VIBES.romantic;
     const budget = parseInt(document.getElementById('budget-slider').value) || 70;
     const time   = document.getElementById('p-time')?.value || '18:30';
     const dur    = parseInt(document.getElementById('p-dur')?.value) || 3;
@@ -269,7 +358,21 @@
     document.getElementById('res-date-line').textContent =
       dateStr + ' • ' + fmtTime(time) + ' • ' + dur + ' hours';
 
-    const stops = v.stops.map(id => DEALS.find(d => d.id === id)).filter(Boolean);
+    const stops = pickItineraryStops(curVibe, budget);
+
+    if (stops.length === 0) {
+      document.getElementById('timeline').innerHTML = `
+        <div class="empty-state">
+          <div class="es-icon">🗓</div>
+          <h3>No deals to plan with yet</h3>
+          <p>Once suppliers add deals, they'll show up here.</p>
+        </div>`;
+      document.getElementById('res-pills').innerHTML = '';
+      document.getElementById('total-summary').innerHTML = '';
+      document.getElementById('res-extras').innerHTML = '';
+      return;
+    }
+
     let cursor = timeToMins(time), total = 0;
     let tlHTML = '<div class="tl-spine"></div>';
 
@@ -279,21 +382,22 @@
       const endStr   = minsToTime(endMins);
       total += s.price;
       const typeClass = s.type === 'food' ? 'food' : s.type === 'drinks' ? 'drinks' : 'activity';
-      const typeLabel = s.type === 'food' ? '🍽 Food' : s.type === 'drinks' ? '🍹 Drinks' : '🎭 Activity';
+      const thumb = s.image
+        ? `<img src="${escHtmlApp(s.image)}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`
+        : s.emoji;
 
       tlHTML += `
         <div class="tl-item">
           <div class="tl-node ${typeClass}">${s.emoji}</div>
           <div class="tl-card" id="tlc-${i}">
-            <div class="tl-card-img" style="background:${s.bg}">${s.emoji}</div>
+            <div class="tl-card-img" style="background:${s.bg}">${thumb}</div>
             <div class="tl-card-body">
-              <span class="tl-badge ${typeClass}">${typeLabel}</span>
-              <div class="tl-name">${s.name}</div>
-              <div class="tl-loc">📍 ${s.location}</div>
+              <span class="tl-badge ${typeClass}">${escHtmlApp(s.categoryName)}</span>
+              <div class="tl-name">${escHtmlApp(s.name)}</div>
+              <div class="tl-loc">📍 ${escHtmlApp(s.location)}</div>
               <div class="tl-times">
                 <div class="tl-time-chip">▶ ${startStr}</div>
-                <div class="tl-time-chip">■ ${endStr}</div>
-                <div class="tl-time-chip">⏱ ${s.dur} min</div>
+                <div class="tl-time-chip">■ ${endStr} (est.)</div>
               </div>
             </div>
             <div class="tl-price-col">
@@ -310,28 +414,19 @@
         </div>`;
 
       cursor = endMins;
-      const tr = v.travels[i];
-      if (tr) {
-        const wCls = tr.w === 'alert' ? 'alert' : tr.w === 'warn' ? 'warn' : '';
-        const icon = tr.w === 'alert' ? '⚠️' : '🚗';
-        tlHTML += `
-          <div class="travel-seg">
-            <div class="travel-line"></div>
-            <div class="travel-pill ${wCls}">${icon} ${tr.t} min travel</div>
-            <div class="travel-line"></div>
-          </div>`;
-        cursor += tr.t;
-      }
     });
 
-    document.getElementById('timeline').innerHTML = tlHTML;
+    document.getElementById('timeline').innerHTML = tlHTML +
+      `<div style="font-size:12px;color:var(--muted);margin-top:12px;padding-left:4px">
+        ⏱ Times are estimated (60 min/stop) — travel time between stops isn't calculated yet, so double-check locations before you go.
+      </div>`;
 
     const totalMins = cursor - timeToMins(time);
     document.getElementById('res-pills').innerHTML = `
       <div class="r-pill">📍 ${stops.length} stops</div>
       <div class="r-pill">💰 $${total} total</div>
       <div class="r-pill">🕐 ${Math.floor(totalMins/60)}h ${totalMins%60 > 0 ? totalMins%60+'m' : ''}</div>
-      <div class="r-pill">📍 ${loc}</div>`;
+      <div class="r-pill">📍 ${escHtmlApp(loc)}</div>`;
 
     document.getElementById('total-summary').innerHTML = `
       <div class="ts-item"><div class="ts-label">Total cost</div><div class="ts-val pink">$${total}</div></div>
@@ -343,7 +438,8 @@
       <div class="ts-item"><div class="ts-label">Stops</div><div class="ts-val">${stops.length}</div></div>
       <button class="save-plan-btn" onclick="savePlan()">Save this plan ♡</button>`;
 
-    const extras = DEALS.filter(d => !v.stops.includes(d.id)).slice(0, 4);
+    const stopIds = new Set(stops.map(s => s.id));
+    const extras  = DEALS.filter(d => !stopIds.has(d.id)).slice(0, 4);
     document.getElementById('res-extras').innerHTML = extras.map(d => dealCardHTML(d)).join('');
   }
 
@@ -357,9 +453,10 @@
   }
 
   function savePlan() {
-    const name = document.querySelector('.results-plan-name')?.textContent || 'My Date Plan';
-    const cost = document.querySelector('.ts-val.pink')?.textContent || '$0';
-    savedPlans.push({ name, cost, date: new Date().toLocaleDateString(), emoji: '❤️', stops: VIBES[curVibe]?.stops?.length || 3 });
+    const name  = document.querySelector('.results-plan-name')?.textContent || 'My Date Plan';
+    const cost  = document.querySelector('.ts-val.pink')?.textContent || '$0';
+    const stops = document.querySelectorAll('#timeline .tl-card').length || 3;
+    savedPlans.push({ name, cost, date: new Date().toLocaleDateString(), emoji: '❤️', stops });
     const btn = document.querySelector('.save-plan-btn');
     if (btn) { btn.textContent = 'Saved! ✓'; btn.style.background = '#10B981'; }
   }
@@ -368,18 +465,21 @@
   // DEAL CARDS
   // ============================================================
   function dealCardHTML(d) {
+    const media = d.image
+      ? `<img src="${escHtmlApp(d.image)}" style="width:100%;height:100%;object-fit:cover">`
+      : `<span style="font-size:52px">${d.emoji}</span>`;
     return `
-      <div class="deal-card" onclick="openDeal(${d.id})">
+      <div class="deal-card" onclick="openDeal('${d.id}')">
         <div class="deal-img" style="background:${d.bg}">
-          <span style="font-size:52px">${d.emoji}</span>
+          ${media}
           <div class="deal-img-overlay">
-            ${d.tags.map(t => `<span class="deal-tag ${t==='Romantic'||t==='Premium' ? 'pink' : ''}">${t}</span>`).join('')}
+            ${d.tags.map(t => `<span class="deal-tag ${t==='Romantic'||t==='Premium' ? 'pink' : ''}">${escHtmlApp(t)}</span>`).join('')}
           </div>
           <div class="deal-save" onclick="event.stopPropagation();this.classList.toggle('saved')">♡</div>
         </div>
         <div class="deal-body">
-          <div class="deal-name">${d.name}</div>
-          <div class="deal-loc">📍 ${d.location}</div>
+          <div class="deal-name">${escHtmlApp(d.name)}</div>
+          <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
           <div class="deal-footer">
             <div class="deal-price">${d.price === 0 ? '<span>Free</span>' : '$' + d.price + ' <span>pp</span>'}</div>
             <button class="deal-cta" onclick="event.stopPropagation();go('planner')">Add to plan</button>
@@ -389,7 +489,12 @@
   }
 
   function buildHomeTrending() {
-    document.getElementById('home-trending').innerHTML = DEALS.slice(0, 4).map(d => dealCardHTML(d)).join('');
+    const el = document.getElementById('home-trending');
+    if (DEALS.length === 0) {
+      el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🍽</div><h3>No deals yet</h3><p>Check back soon — suppliers are adding deals.</p></div>`;
+      return;
+    }
+    el.innerHTML = DEALS.slice(0, 4).map(d => dealCardHTML(d)).join('');
   }
 
   function buildExplore(filter = 'all', priceFilter = null) {
@@ -398,19 +503,21 @@
     if (priceFilter === 'budget')  filtered = filtered.filter(d => d.price < 20);
     else if (priceFilter === 'mid')     filtered = filtered.filter(d => d.price >= 20 && d.price <= 60);
     else if (priceFilter === 'premium') filtered = filtered.filter(d => d.price > 60);
-    document.getElementById('explore-grid').innerHTML = filtered.map(d => dealCardHTML(d)).join('');
+    const el = document.getElementById('explore-grid');
+    el.innerHTML = filtered.length
+      ? filtered.map(d => dealCardHTML(d)).join('')
+      : `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🔍</div><h3>No deals match</h3><p>Try a different filter.</p></div>`;
   }
 
   function filterDeals(cat, btn) {
-    document.querySelectorAll('#page-explore .filter-bar .filter-chip').forEach((c, i) => { if (i < 5) c.classList.remove('on'); });
+    document.querySelectorAll('#page-explore .filter-chip-cat').forEach(c => c.classList.remove('on'));
     btn.classList.add('on');
     activeCat = cat;
     buildExplore(activeCat, activePriceF);
   }
 
   function filterPrice(p, btn) {
-    const btns = document.querySelectorAll('#page-explore .filter-bar .filter-chip');
-    for (let i = 5; i < btns.length; i++) btns[i].classList.remove('on');
+    document.querySelectorAll('#page-explore .filter-chip-price').forEach(c => c.classList.remove('on'));
     if (activePriceF === p) { activePriceF = null; }
     else { btn.classList.add('on'); activePriceF = p; }
     buildExplore(activeCat, activePriceF);
@@ -420,22 +527,22 @@
     prevPage = document.querySelector('.nav-link.active')?.dataset.page || 'home';
     const d = DEALS.find(x => x.id === id);
     if (!d) return;
-    document.getElementById('detail-img').style.background = d.bg;
-    // safely set emoji text
     const heroEl = document.getElementById('detail-img');
-    heroEl.childNodes[0].textContent = d.emoji;
+    heroEl.style.background = d.bg;
+    heroEl.innerHTML = d.image
+      ? `<img src="${escHtmlApp(d.image)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0"><div class="detail-tags" id="detail-tags" style="position:relative;z-index:1"></div>`
+      : `<span style="font-size:80px">${d.emoji}</span><div class="detail-tags" id="detail-tags"></div>`;
     document.getElementById('detail-tags').innerHTML =
-      d.tags.map(t => `<span class="deal-tag ${t==='Romantic'||t==='Premium'?'pink':''}">${t}</span>`).join('');
+      d.tags.map(t => `<span class="deal-tag ${t==='Romantic'||t==='Premium'?'pink':''}">${escHtmlApp(t)}</span>`).join('');
     document.getElementById('detail-main').innerHTML = `
       <div class="detail-info">
-        <h1>${d.name}</h1>
-        <div class="detail-loc">📍 ${d.location}</div>
-        <p class="detail-desc">${d.desc}</p>
+        <h1>${escHtmlApp(d.name)}</h1>
+        <div class="detail-loc">📍 ${escHtmlApp(d.location)}</div>
+        <p class="detail-desc">${escHtmlApp(d.desc)}</p>
         <div class="detail-meta-grid">
-          <div class="detail-meta-item"><div class="detail-meta-label">Category</div><div class="detail-meta-val">${d.type.charAt(0).toUpperCase()+d.type.slice(1)}</div></div>
-          <div class="detail-meta-item"><div class="detail-meta-label">Duration</div><div class="detail-meta-val">${d.dur} min</div></div>
-          <div class="detail-meta-item"><div class="detail-meta-label">Best time</div><div class="detail-meta-val">${d.best}</div></div>
-          <div class="detail-meta-item"><div class="detail-meta-label">Location</div><div class="detail-meta-val">${d.location}</div></div>
+          <div class="detail-meta-item"><div class="detail-meta-label">Category</div><div class="detail-meta-val">${escHtmlApp(d.categoryName)}</div></div>
+          <div class="detail-meta-item"><div class="detail-meta-label">Best time</div><div class="detail-meta-val">${escHtmlApp(d.best)}</div></div>
+          <div class="detail-meta-item"><div class="detail-meta-label">Location</div><div class="detail-meta-val">${escHtmlApp(d.location)}</div></div>
         </div>
       </div>
       <div class="detail-sidebar">
@@ -626,8 +733,10 @@
     pi.min   = today.toISOString().split('T')[0];
   }
 
-  buildHomeTrending();
-  buildExplore();
+  loadDealsAndCategories().then(() => {
+    buildHomeTrending();
+    buildExplore();
+  });
 
   // Check if already logged in on page load.
   // If a supplier lands on index.html while already signed in,
