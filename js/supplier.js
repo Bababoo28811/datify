@@ -5,7 +5,14 @@
 // AUTH GUARD — redirect if not logged in or not whitelisted
 // ============================================================
 async function initSupplierDashboard() {
-  const { data: { session } } = await db.auth.getSession();
+  let session;
+  try {
+    ({ data: { session } } = await db.auth.getSession());
+  } catch (err) {
+    console.error('Dashboard boot: could not check session:', err);
+    showBootFailure('Could not connect to Datify. Check your internet connection and refresh the page.');
+    return;
+  }
 
   if (!session) {
     window.location.href = 'index.html';
@@ -13,13 +20,20 @@ async function initSupplierDashboard() {
   }
 
   // Check whitelist
-  const { data, error } = await db
-    .from('supplier_whitelist')
-    .select('email, business_name')
-    .eq('email', session.user.email)
-    .single();
+  let data, whitelistError;
+  try {
+    ({ data, error: whitelistError } = await db
+      .from('supplier_whitelist')
+      .select('email, business_name')
+      .eq('email', session.user.email)
+      .single());
+  } catch (err) {
+    console.error('Dashboard boot: whitelist check failed:', err);
+    showBootFailure('Could not verify your supplier account. Check your connection and refresh.');
+    return;
+  }
 
-  if (error || !data) {
+  if (whitelistError || !data) {
     // Valid Datify user but NOT a supplier — send them home
     window.location.href = 'index.html';
     return;
@@ -29,10 +43,32 @@ async function initSupplierDashboard() {
   const navEl = document.getElementById('nav-user-email');
   if (navEl) navEl.textContent = session.user.email;
 
-  // Load data
-  await loadCategories();
-  await loadMyDeals();
+  // Load data — failures here shouldn't leave the page stuck on
+  // "Loading…" forever with no explanation.
+  try {
+    await loadCategories();
+    await loadMyDeals();
+  } catch (err) {
+    console.error('Dashboard boot: failed to load data:', err);
+    showBootFailure('Could not load your deals/categories. Check your connection and refresh.');
+  }
 }
+
+function showBootFailure(msg) {
+  let el = document.getElementById('boot-error-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'boot-error-banner';
+    el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#FDEAEA;color:#B42318;padding:10px 16px;text-align:center;font-size:13px;font-weight:600';
+    document.body.prepend(el);
+  }
+  el.textContent = msg;
+}
+
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled error:', e.reason);
+  showBootFailure('Something went wrong. Try refreshing the page.');
+});
 
 async function supplierLogout() {
   await db.auth.signOut();
@@ -45,10 +81,17 @@ async function supplierLogout() {
 let categories = [];
 
 async function loadCategories() {
-  const { data } = await db
+  const { data, error } = await db
     .from('categories')
     .select('*')
     .order('name');
+
+  if (error) {
+    console.error('Failed to load categories:', error);
+    const el = document.getElementById('cat-chips');
+    if (el) el.innerHTML = '<span style="font-size:13px;color:var(--red)">Could not load categories — refresh to try again.</span>';
+    return;
+  }
 
   categories = data || [];
   renderCategoryChips();
@@ -90,6 +133,11 @@ async function addCategory() {
   if (!name) return;
 
   const { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    showMsg(msgEl, 'error', 'Your session expired — please sign in again.');
+    setTimeout(() => (window.location.href = 'index.html'), 1500);
+    return;
+  }
 
   const { error } = await db.from('categories').insert({
     name,
@@ -248,6 +296,7 @@ async function submitDeal(e) {
 
   try {
     const { data: { session } } = await db.auth.getSession();
+    if (!session) throw new Error('Your session expired — please sign in again.');
 
     // Upload new image if one was selected
     let imageUrl = document.getElementById('img-url-input').value || null;

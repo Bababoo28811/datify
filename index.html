@@ -62,10 +62,10 @@
         <button class="btn-hero-secondary" onclick="go('explore')">Explore Deals →</button>
       </div>
     </div>
-    <div class="stats-bar" style="max-width:580px;margin:0 auto 0">
-      <div class="stat-item"><div class="stat-num">2,400+</div><div class="stat-lbl">Curated deals</div></div>
-      <div class="stat-item"><div class="stat-num">18k</div><div class="stat-lbl">Dates planned</div></div>
-      <div class="stat-item"><div class="stat-num">4.9★</div><div class="stat-lbl">Avg rating</div></div>
+    <div class="stats-bar" id="hero-stats" style="max-width:580px;margin:0 auto 0;display:none">
+      <div class="stat-item"><div class="stat-num" id="stat-deals-num">0</div><div class="stat-lbl">Live deals</div></div>
+      <div class="stat-item"><div class="stat-num" id="stat-cats-num">0</div><div class="stat-lbl">Categories</div></div>
+      <div class="stat-item"><div class="stat-num">🇸🇬</div><div class="stat-lbl">Singapore only</div></div>
     </div>
     <div class="section">
       <div class="section-head">
@@ -144,7 +144,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
-          <input class="form-input" id="signup-password" type="password" placeholder="Min. 6 characters">
+          <input class="form-input" id="signup-password" type="password" placeholder="8+ chars, upper, lower &amp; symbol">
         </div>
         <button class="btn-full" id="signup-btn" onclick="handleSignUp()">Create account — it's free</button>
         <div class="auth-footer">Already have an account? <a onclick="go('login')">Sign in →</a></div>
@@ -347,7 +347,7 @@
         <h3>Change Password</h3>
         <div class="profile-field">
           <label>New Password</label>
-          <input type="password" id="pf-new-pass" placeholder="Min. 6 characters">
+          <input type="password" id="pf-new-pass" placeholder="8+ chars, upper, lower &amp; symbol">
         </div>
         <div class="profile-field">
           <label>Confirm New Password</label>

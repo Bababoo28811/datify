@@ -2,6 +2,17 @@
 // Depends on: js/supabase-client.js (db must be defined first)
 
 // ============================================================
+  // PASSWORD STRENGTH — min 8 chars, upper, lower, and a symbol
+  // ============================================================
+  const PASSWORD_RULE_TEXT = 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a symbol.';
+  function isStrongPassword(pw) {
+    return pw.length >= 8
+      && /[A-Z]/.test(pw)
+      && /[a-z]/.test(pw)
+      && /[^A-Za-z0-9]/.test(pw);
+  }
+
+  // ============================================================
   // ✅ STEP 2 — Auth state: update nav when user signs in/out
   // ============================================================
   db.auth.onAuthStateChange((event, session) => {
@@ -72,8 +83,8 @@
       errEl.style.display = 'block';
       return;
     }
-    if (password.length < 6) {
-      errEl.textContent   = 'Password must be at least 6 characters.';
+    if (!isStrongPassword(password)) {
+      errEl.textContent   = PASSWORD_RULE_TEXT;
       errEl.style.display = 'block';
       return;
     }
@@ -591,7 +602,15 @@
   // PROFILE PAGE
   // ============================================================
   async function buildProfile() {
-    const { data: { session } } = await db.auth.getSession();
+    let session;
+    try {
+      ({ data: { session } } = await db.auth.getSession());
+    } catch (err) {
+      console.error('Failed to load session for profile:', err);
+      showBootError('Could not load your profile — check your connection and try again.');
+      go('home');
+      return;
+    }
     if (!session) { go('login'); return; }
 
     const user      = session.user;
@@ -670,8 +689,8 @@
     const newPass = document.getElementById('pf-new-pass').value.trim();
     const confPass= document.getElementById('pf-confirm-pass').value.trim();
 
-    if (!newPass || newPass.length < 6) {
-      showProfileMsg(msgEl, 'err', 'Password must be at least 6 characters.');
+    if (!newPass || !isStrongPassword(newPass)) {
+      showProfileMsg(msgEl, 'err', PASSWORD_RULE_TEXT);
       return;
     }
     if (newPass !== confPass) {
@@ -736,6 +755,9 @@
   loadDealsAndCategories().then(() => {
     buildHomeTrending();
     buildExplore();
+  }).catch(err => {
+    console.error('Boot: failed to load deals/categories:', err);
+    showBootError('Some deals may not have loaded — check your connection and refresh.');
   });
 
   // Check if already logged in on page load.
@@ -749,4 +771,28 @@
         window.location.href = 'supplier-dashboard.html';
       }
     }
+  }).catch(err => {
+    // Non-fatal: worst case the user just isn't auto-redirected /
+    // the nav stays in signed-out state until they refresh.
+    console.error('Boot: failed to check session:', err);
   });
+
+  // Last-resort safety net so a bug anywhere doesn't fail silently —
+  // without this, an unhandled promise rejection just vanishes into
+  // the console and the user is left looking at a stuck/blank page
+  // with no idea anything went wrong.
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('Unhandled error:', e.reason);
+    showBootError('Something went wrong loading part of the page. Try refreshing.');
+  });
+
+  function showBootError(msg) {
+    let el = document.getElementById('boot-error-banner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'boot-error-banner';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#FDEAEA;color:#B42318;padding:10px 16px;text-align:center;font-size:13px;font-weight:600';
+      document.body.prepend(el);
+    }
+    el.textContent = msg;
+  }
