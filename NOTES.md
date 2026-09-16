@@ -44,7 +44,7 @@ confirmed it was safe to delete.
 
 | Table | Rows | Notes |
 |---|---|---|
-| `deals` | 19 | 15 approved, **4 pending** |
+| `deals` | 19 | all 19 approved (16 Sep) |
 | `free_activities` | 14 | Used by the planner to fill gaps |
 | `categories` | 4 | |
 | `supplier_whitelist` | 1 | Only Elisa's account |
@@ -58,11 +58,28 @@ filled in; the other 12 are deliberately NULL and render "Hours not stated —
 check with venue" rather than a made-up claim. All 19 are geocoded
 (`latitude`/`longitude` populated), 12 have an `end_date`.
 
-**The 4 pending deals need approving or they stay invisible:** F1 Exhibition
-tickets, OMMA Korean BBQ, Singapore Zoo, Snow City (re-checked 16 Sep, still
-pending). These are exactly the 4 percentage-discount deals. They're pending
-because they were inserted after the approval trigger went in. Approve them in
-`admin.html` or with a direct SQL update.
+The 4 percentage-discount deals (F1 Exhibition, OMMA, Zoo, Snow City) were stuck
+pending and invisible in the admin queue because of the missing
+`deals_admin_select` policy. Fixed and approved 16 Sep.
+
+### New columns (16 Sep)
+
+- `deals.time_slots` and `free_activities.time_slots`: `text[]`, subset of
+  `morning, midday, afternoon, evening, late` (check constraint). NULL = any time.
+  All 19 deals and 14 free activities are tagged. Windows: morning <12pm,
+  midday 11:30–2:30, afternoon 2–6, evening 6–9:30, late 9pm+.
+- `deals_dates_order` constraint: `end_date >= start_date`.
+
+### Scheduled release (16 Sep)
+
+A deal with a future `start_date` is hidden from the public and goes live on that
+day automatically. No cron: `deals_public_read` and `deals_select_authenticated`
+check `start_date <= (now() at time zone 'Asia/Singapore')::date` on every read.
+The end_date check also uses Singapore time now (was UTC, so deals flipped at 8am
+SGT). Suppliers still see their own scheduled deals. No checkbox: the phase
+(scheduled / active / expired) is always derived from the dates (`dealPhase()` in
+`supplier.js`), so it can't contradict them. All current deals have
+`start_date = NULL`.
 
 ### Security
 
@@ -79,6 +96,10 @@ Things that were fixed and should not be regressed:
 - `guard_deal_status_change` must keep its `if (select auth.jwt()) is null then
   return NEW; end if;` guard. Without it the service role counts as a non-admin and
   the trigger un-approves every deal it touches. This already happened once.
+- `deals_admin_select` (added 16 Sep) lets the founder account read every deal.
+  Without it the admin queue shows nothing pending: admin update/delete policies
+  existed but there was no admin SELECT, so pending deals with no `supplier_id`
+  (or another supplier's) were invisible. Don't drop it.
 - Functions that were hardened have `search_path` pinned. Keep it that way.
 - Default `EXECUTE` grants go to `PUBLIC`, not to `anon`/`authenticated`. Revoking
   from those two roles does nothing; revoke from `public`.
@@ -102,9 +123,20 @@ Done and working:
 - Saved / shortlist, including **guest shortlist** — signed-out visitors can save to
   localStorage, and it merges into the DB on sign-in (`mergeGuestShortlist`,
   upsert on `user_id,deal_id` with `ignoreDuplicates`).
-- Planner: picks stops by vibe, budget, time and area, then fills leftover time with
-  nearby free activities using Haversine distance from stored lat/lng. Checks budget
-  and time on every stop, not just at the end.
+- Planner (`buildItinerary` in `app.js`, rewritten 16 Sep): walks the date from the
+  start time and only places a stop whose `time_slots` fit that hour, so dinner is
+  never before afternoon tea. Rules: a meal (category Dining) needs 3h since the
+  last one; if the date covers lunch/dinner time and no meal is placed yet, a meal
+  outranks vibe (not after 9pm); paid stops cost 2 points per km from the previous
+  stop; after a paid stop it tries a free stroll within 8 km; max 2 free stops in a
+  row; if nothing fits it waits 15 min and tries again (so stops can have gaps).
+  Budget and time checked per stop. Percentage-only deals are excluded. The old
+  `pickItineraryStops` / `padWithFreeActivities` are gone. Tested headless against
+  the real data across 9 start-time/budget/vibe/area cases.
+- Supplier form has "Best time of day" chips (writes `time_slots`), a hint under
+  Start Date, a Scheduled stat card and a "Scheduled · live 7 Oct" status pill.
+  Fixed a bug where the save success message was hidden immediately by
+  `cancelEdit()`.
 - Dark mode, hamburger-only nav at all widths, How It Works page, contact form.
 - Supplier portal with approval-status badges and Seller IDs (DTF-0001 format).
 - Admin approval queue.
@@ -113,49 +145,37 @@ Done and working:
 
 ### Uncommitted work sitting on disk right now
 
-**Swipe pre-filter** (on disk, not committed, not pushed). New setup screen before
-the deck: Budget per person (Under $15/$30/$50/Any) / Area / Vibe (optional,
-"Surprise me" = any). Touches:
-- `app.js`: `swipePrefs` (declared next to `swipeDeals`), `buildSwipe`,
-  `showSwipeSetup`, `startSwipeDeck`, `swipeMisses`, `perPersonPrice`,
-  `describePrefs`, `inArea`, `stretchNote`, `renderSwipeStack`, and a
-  `!deal.divider` guard in `swipeCommit`.
-- `index.html`: `#swipe-setup` markup, `#swipe-deck` wrapper, `#swipe-subtitle`.
-- `style.css`: `.swipe-setup*`, `.swipe-change-btn`, `.swipe-divider*`,
-  `.swipe-stretch-note`.
+Swipe pre-filter was pushed 16 Sep. On disk and **not pushed** yet:
+`js/app.js` (planner rewrite, Singapore-time date filter), `js/supplier.js`,
+`supplier-dashboard.html`, `css/supplier.css`, `NOTES.md`. The database side
+(time_slots, new policies) is already live, and the currently deployed site is
+compatible with it.
 
-Behaviour (Elisa chose option B, soft filter): exact matches first, cheapest first
-(percentage offers after priced ones), then a divider card, then everything else
-ranked by how far off it is (wrong area costs 1, wrong vibe 0.5, over-budget costs
-the fraction it's over by). So for "under $15, East", Sushidan $19.90 in the East
-comes before a $3.90 izakaya in Central. Stretch cards carry a small label saying
-why they're there ("over budget · in the West"). `total` prices are halved before
-the budget comparison since they're for two. Percentage-only offers count as
-fitting the budget rather than being hidden. With no filters set, all deals show
-cheapest first with no divider. Copy says "in Central" but "in the East".
+To check before pushing: Planner with a few start times (e.g. 12pm, 3pm, 6:30pm);
+supplier dashboard add/edit with slot chips and a future start date.
 
-**Testing so far:** run in headless Chromium inside the container with a stubbed
-Supabase client fed the real 19 rows (live Supabase is unreachable from the
-container). Verified: chip selection, zero-match case (divider first, subtitle
-"No exact matches … yet"), a partial-match case, no-filter case, right-swipe
-saving a deal, "Change filters" from the deck header, no JS errors.
-**Not yet checked:** right-swipe on the divider (guarded in code, not clicked),
-the "Change filters" buttons on the divider and the end-of-deck empty state, real
-images, dark mode, and the live site with real auth. Note the 4 percentage deals
-are pending, so live users currently won't see them in the deck.
-
-To ship:
 ```
 git add -A
-git commit -m "Swipe: setup filters + soft-ranked deck with divider"
+git commit -m "Time-aware planner, scheduled deals, time-of-day on supplier form"
 git push
 ```
+
+Swipe pre-filter details: setup screen (budget / area / optional vibe), exact
+matches first, then a divider, then the rest ranked by how far off they are
+(wrong area 1, wrong vibe 0.5, over budget by fraction over). `total` prices halved
+per person; percentage offers count as within budget.
 
 ---
 
 ## 4. Open items
 
 ### Blocks launch
+
+(Elisa bought getdatify.com on **Namecheap**. Resend setup was started and
+paused on 16 Sep: next step is adding the domain in Resend, Tokyo region, then
+copying its DNS records into Namecheap Advanced DNS without touching the
+GitHub Pages records.)
+
 
 **Email delivery.** Supabase's built-in mailer does not reliably deliver
 confirmation emails. Elisa's own account had `email_confirmed = false` and she
@@ -166,10 +186,11 @@ with this as-is.
 
 ### Friction list, in the order agreed
 
-1. ~~Swipe pre-filter~~ — built, partly tested (see above).
-2. **The itinerary doesn't behave like a date.** It can put dinner before the
-   afternoon activity, or stack two meals. Needs a `time_of_day` or slot field on
-   `deals` and `free_activities` so the planner can order stops sensibly.
+1. ~~Swipe pre-filter~~ — pushed 16 Sep.
+2. ~~Itinerary order~~ — done 16 Sep (time_slots + `buildItinerary`), not pushed yet.
+   Known limits: ignores weekday rules (weekday-lunch buffets, Fri/Sat dinner
+   buffet); the planner's Date field isn't used for that yet. Gaps while waiting
+   for a slot aren't labelled in the timeline.
 3. **The distance message undersells the trek.** "All stops within 7.7 km" reads
    reassuring, but 7.7 km across Singapore by public transport is a real journey.
    Either convert to a rough travel time or reword so it doesn't sound like nothing.
@@ -219,9 +240,8 @@ with this as-is.
 
 ## 6. Where to pick up
 
-1. Elisa: open Swipe on the live site (after pushing) and check the "not yet
-   checked" list in section 3.
-2. Push the swipe pre-filter.
-3. Approve the 4 pending deals.
-4. Next real piece of work: friction item 2, itinerary ordering. Needs a schema
-   change (`time_of_day` / slot field) before any frontend work.
+1. Elisa: test the planner and supplier form locally, then push (section 3).
+2. Email delivery (blocks launch): Resend + Namecheap, or turn off "Confirm email"
+   in the meantime.
+3. Friction item 3: distance message → rough travel time.
+4. Delete the dead root files (`supplier.js`, `supabase.js`, `Claude outputs/`).

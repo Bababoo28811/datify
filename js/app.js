@@ -291,13 +291,24 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // Today's date in Singapore as YYYY-MM-DD. toISOString() is UTC, which
+  // is still "yesterday" until 8am here.
+  function sgToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
+  }
+
   async function loadDealsAndCategories() {
     try {
-      const [catRes, dealRes, freeRes] = await Promise.all([
+      const [catRes, dealRes, freeRes, holRes] = await Promise.all([
         db.from('categories').select('id, name').order('name'),
         db.from('deals').select('*, categories(name)').order('created_at', { ascending: false }),
-        db.from('free_activities').select('*').eq('active', true)
+        db.from('free_activities').select('*').eq('active', true),
+        db.from('public_holidays').select('day, name')
       ]);
+
+      // Date string -> holiday name. A failed load just means no holiday
+      // rules apply, which is safer than blocking the planner.
+      PUBLIC_HOLIDAYS = new Map((holRes?.data || []).map(h => [h.day, h.name]));
 
       // Free things to do, used to pad out an itinerary when the budget
       // and time aren't used up by paid deals.
@@ -312,6 +323,7 @@
         price: 0,
         dur: f.duration_mins || 45,
         vibe: f.vibe || '',
+        timeSlots: f.time_slots || null,
         categoryName: 'Free to do',
         type: 'free',
         isFree: true,
@@ -322,8 +334,12 @@
 
       CATEGORIES = catRes.data || [];
 
-      const today = new Date().toISOString().split('T')[0];
-      const rows  = (dealRes.data || []).filter(r => r.ongoing || !r.end_date || r.end_date >= today);
+      // Same rule as the database policy, in Singapore time. The database
+      // already hides these; this just keeps the two in step.
+      const today = sgToday();
+      const rows  = (dealRes.data || []).filter(r =>
+        (!r.start_date || r.start_date <= today) &&
+        (r.ongoing || !r.end_date || r.end_date >= today));
 
       // NOTE: real deals have no stored duration, so every stop is
       // scheduled as a flat 60 minutes for planner purposes — an
@@ -357,6 +373,13 @@
         best: r.ongoing ? 'Ongoing' : (r.start_date || null),
         endDate: r.end_date || null,
         region: r.region || null,
+        // When in the day this makes sense. null = any time.
+        timeSlots: r.time_slots || null,
+        // Days of the week it's valid ('mon'..'sun'). null = every day.
+        days: r.days || null,
+        // Per-holiday answers from the supplier: { 'YYYY-MM-DD': true/false }.
+        // Missing date = never asked, treated as valid.
+        holidayValidity: r.holiday_validity || {},
         lat: r.latitude  != null ? Number(r.latitude)  : null,
         lng: r.longitude != null ? Number(r.longitude) : null,
         dur: 60,
@@ -465,72 +488,195 @@
     ).join('');
   }
 
-  // Picks real deals matching the chosen vibe that fit BOTH the budget and
-  // the time the user actually has, in the area they picked.
+  // ============================================================
+  // TIMELINE BUILDER — walks the date from the start time, one stop at a
+  // time, only placing things that make sense at that hour.
   //
-  // minutesAvailable is not optional cosmetics: without it the picker only
-  // capped on budget and stop count, so asking for a 3-hour date reliably
-  // produced a 4-hour itinerary (4 stops x 60 min) that ran an hour past
-  // what you said you had.
-  //
-  // areaFilter is a Singapore region ('Central', 'East', ...) or 'any'. The
-  // old Location dropdown offered Bangkok/Tokyo/London and filtered nothing
-  // at all, on a site where every deal is in Singapore.
-  function pickItineraryStops(vibeKey, budget, minutesAvailable, areaFilter) {
+  // Before this, stops were picked by vibe/price and then listed in pick
+  // order, so a 6:30pm date could open with afternoon tea and put dinner
+  // last, or stack two buffets back to back.
+  // ============================================================
+  // Slot windows in minutes from midnight. They overlap on purpose:
+  // 11:45am is both "morning" and "midday".
+  const SLOT_WINDOWS = {
+    morning:   [0,    720],   // before 12pm
+    midday:    [690,  870],   // 11:30am – 2:30pm
+    afternoon: [840,  1080],  // 2pm – 6pm
+    evening:   [1080, 1290],  // 6pm – 9:30pm
+    late:      [1260, 2880]   // 9pm onwards (past midnight too)
+  };
+
+  function slotsAt(mins) {
+    return Object.keys(SLOT_WINDOWS).filter(k => mins >= SLOT_WINDOWS[k][0] && mins < SLOT_WINDOWS[k][1]);
+  }
+
+  // No slots stored = no restriction (e.g. a new supplier deal).
+  function fitsAt(stop, mins) {
+    if (!stop.timeSlots || !stop.timeSlots.length) return true;
+    const now = slotsAt(mins);
+    return stop.timeSlots.some(sl => now.includes(sl));
+  }
+
+  const DAY_KEYS  = ['sun','mon','tue','wed','thu','fri','sat'];
+  const DAY_NAMES = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+  const WEEK_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
+
+  // What kind of day a YYYY-MM-DD date is, for deal rules.
+  function dayInfo(isoDate) {
+    const dow = DAY_KEYS[new Date(isoDate + 'T12:00').getDay()];
+    const holiday = PUBLIC_HOLIDAYS.get(isoDate) || null;
+    return { date: isoDate, dow, holiday };
+  }
+
+  function validOnDay(d, info) {
+    if (!info) return true;
+    if (d.days && d.days.length && !d.days.includes(info.dow)) return false;
+    if (info.holiday && d.holidayValidity[info.date] === false) return false;
+    return true;
+  }
+
+  // ['mon','tue','wed','thu','fri'] -> "Mon–Fri", ['fri','sat'] -> "Fri–Sat",
+  // ['mon','wed'] -> "Mon, Wed". Back-to-back days become a range.
+  function formatDays(days) {
+    if (!days || !days.length || days.length === 7) return '';
+    const idx = WEEK_ORDER.map((k, i) => days.includes(k) ? i : -1).filter(i => i >= 0);
+    const parts = [];
+    for (let i = 0; i < idx.length; i++) {
+      let j = i;
+      while (j + 1 < idx.length && idx[j + 1] === idx[j] + 1) j++;
+      const a = DAY_NAMES[WEEK_ORDER[idx[i]]], b = DAY_NAMES[WEEK_ORDER[idx[j]]];
+      parts.push(j === i ? a : a + '–' + b);
+      i = j;
+    }
+    return parts.join(', ');
+  }
+
+  // Short line for the detail page, e.g. "Mon–Fri · not on public holidays".
+  function dealDaysNote(d) {
+    const bits = [];
+    const f = formatDays(d.days);
+    if (f) bits.push(f + ' only');
+    // Upcoming holidays it's not valid on, e.g. "not on 9 Nov, 25 Dec".
+    const today = sgToday();
+    const off = Object.keys(d.holidayValidity || {})
+      .filter(k => d.holidayValidity[k] === false && k >= today)
+      .sort();
+    const upcomingAnswers = Object.keys(d.holidayValidity || {}).filter(k => k >= today);
+    if (off.length && off.length === upcomingAnswers.length && off.length > 2) {
+      // Excluded on every holiday it covers: say it simply.
+      bits.push('not on public holidays');
+    } else if (off.length) {
+      const fmt = k => new Date(k + 'T12:00').toLocaleDateString('en-SG', { day: 'numeric', month: 'short' });
+      const more = off.length > 2 ? ` + ${off.length - 2} more` : '';
+      bits.push(`not on ${off.length === 1 ? 'public holiday' : 'public holidays'} ${off.slice(0, 2).map(fmt).join(', ')}${more}`);
+    }
+    return bits.join(' · ');
+  }
+
+  const isMeal = s => s.categoryName === 'Dining';
+  // Two meals need at least this long between them to be a sensible date.
+  const MEAL_GAP_MINS = 180;
+
+  function buildItinerary(vibeKey, budget, startMins, minutesAvailable, areaFilter, day) {
     const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[vibeKey] || 'Romantic';
-    // Discount-type deals ("20% off") have no computable price, so including
-    // them would silently understate the itinerary total. Keep them out of
-    // auto-generated plans rather than costing them at $0.
-    let costable = DEALS.filter(hasFixedPrice);
+    const endMins = startMins + minutesAvailable;
 
-    // Narrow to the chosen area, but never hand back an empty plan just
-    // because that region is thin — fall back to the whole island.
+    // Discount-type deals ("20% off") have no computable price, so they'd
+    // silently understate the total. Keep them out of generated plans.
+    // Also drop anything not valid on the date picked (weekday-only deals
+    // on a Saturday, weekday deals on a public holiday).
+    let paidPool = DEALS.filter(d => hasFixedPrice(d) && validOnDay(d, day));
+    // Narrow to the chosen area, but fall back to the whole island rather
+    // than hand back nothing because a region is thin.
     if (areaFilter && areaFilter !== 'any') {
-      const inArea = costable.filter(d => d.region === areaFilter);
-      if (inArea.length) costable = inArea;
+      const inArea = paidPool.filter(d => d.region === areaFilter);
+      if (inArea.length) paidPool = inArea;
     }
-    if (!costable.length) return [];
 
-    // Lower score = picked sooner. Three fixes over the first version:
-    //   1. Budget now applies to EVERY stop including the first. Before,
-    //      stop #1 went in regardless, so a $15 budget could return a $25 tea.
-    //   2. A category may appear twice (dinner AND dessert) — the old
-    //      one-per-category rule meant that with most deals tagged "Dining",
-    //      a plan could only ever hold one food stop.
-    //   3. Shortlisted deals are preferred, so saving things actually shapes
-    //      your plan — but a shortlist is never required to get a result.
-    const score = d => {
-      let s = d.price / 1000; // cheaper breaks ties without dominating
-      if (SAVED_DEAL_IDS.has(d.id)) s -= 100;
-      if ((d.vibe || '').toLowerCase() === vibeLabel.toLowerCase()) s -= 50;
-      return s;
-    };
-    const sorted = costable.slice().sort((a, b) => score(a) - score(b));
-
-    const MAX_STOPS = 4, MAX_PER_CAT = 2;
-    // Leave a little room so a paid plan doesn't consume the entire evening
-    // to the last minute — and so there's space for a free stop afterwards.
-    const timeBudget = Math.max(0, (minutesAvailable || 999) - 15);
-    const chosen = [];
+    const MAX_PAID = 4, MAX_STOPS = 8, MIN_SLOT = 25, STEP = 15, MAX_FREE_HOP_KM = 8;
+    const out = [];
+    const usedIds = new Set();
     const catCount = new Map();
-    let total = 0, minutes = 0;
+    let cursor = startMins, total = 0, paidCount = 0, lastMealEnd = null;
 
-    // Pass 1 keeps variety (one per category); pass 2 allows a second from a
-    // category if there's still room, budget AND time left.
-    for (const maxPerCat of [1, MAX_PER_CAT]) {
-      for (const d of sorted) {
-        if (chosen.length >= MAX_STOPS) break;
-        if (chosen.includes(d)) continue;
-        if ((catCount.get(d.type) || 0) >= maxPerCat) continue;
-        if (total + d.price > budget) continue;
-        if (minutes + d.dur > timeBudget) continue;
-        chosen.push(d);
-        catCount.set(d.type, (catCount.get(d.type) || 0) + 1);
-        total += d.price;
-        minutes += d.dur;
+    // Lower = better. Shortlisted and on-vibe first; a category already in
+    // the plan is pushed back so you get variety before repeats.
+    //   - A date that covers lunch or dinner time should include the meal,
+    //     even if no restaurant matches the vibe, so that outranks vibe.
+    //   - Each km from the previous stop costs a little, so the plan
+    //     doesn't zig-zag across the island.
+    const paidScore = d => {
+      let sc = d.price / 1000;
+      if (SAVED_DEAL_IDS.has(d.id)) sc -= 100;
+      if (isMeal(d) && lastMealEnd == null) {
+        const now = slotsAt(cursor);
+        if ((now.includes('midday') || now.includes('evening')) && !now.includes('late')) sc -= 70;
       }
+      if ((d.vibe || '').toLowerCase() === vibeLabel.toLowerCase()) sc -= 50;
+      sc += (catCount.get(d.type) || 0) * 30;
+      const km = haversineKm(out[out.length - 1], d);
+      if (km != null) sc += km * 2;
+      return sc;
+    };
+
+    const nextPaid = () => {
+      if (paidCount >= MAX_PAID) return null;
+      return paidPool
+        .filter(d => !usedIds.has(d.id)
+          && total + d.price <= budget
+          && cursor + d.dur <= endMins
+          && (catCount.get(d.type) || 0) < 2
+          && fitsAt(d, cursor)
+          && !(isMeal(d) && lastMealEnd != null && cursor - lastMealEnd < MEAL_GAP_MINS))
+        .sort((a, b) => paidScore(a) - paidScore(b))[0] || null;
+    };
+
+    const nextFree = () => {
+      if (endMins - cursor < MIN_SLOT) return null;
+      const prev = out[out.length - 1];
+      // Two free stops in a row is enough; after that, wait for a paid one.
+      const prev2 = out[out.length - 2];
+      if (prev && prev.isFree && prev2 && prev2.isFree) return null;
+      const ok = f => {
+        if (usedIds.has(f.id) || cursor + f.dur > endMins || !fitsAt(f, cursor)) return false;
+        // A "nearby" stroll shouldn't be a cross-island trip.
+        const km = prev ? haversineKm(prev, f) : null;
+        return km == null || km <= MAX_FREE_HOP_KM;
+      };
+      if (!prev) {
+        return FREE_ACTIVITIES.find(f => ok(f) && (f.vibe || '').toLowerCase() === vibeLabel.toLowerCase())
+            || FREE_ACTIVITIES.find(ok) || null;
+      }
+      return nearestFreeActivity(prev, usedIds, vibeLabel, ok);
+    };
+
+    const place = stop => {
+      out.push({ ...stop, startAt: cursor });
+      usedIds.add(stop.id);
+      cursor += stop.dur;
+      if (!stop.isFree) {
+        total += stop.price;
+        paidCount++;
+        catCount.set(stop.type, (catCount.get(stop.type) || 0) + 1);
+        if (isMeal(stop)) lastMealEnd = cursor;
+      }
+    };
+
+    let guard = 0;
+    while (cursor < endMins && out.length < MAX_STOPS && guard++ < 100) {
+      const prev = out[out.length - 1];
+      // After a paid stop, stroll somewhere free nearby before the next one,
+      // the same rhythm the old planner had (dinner → walk → drinks).
+      const order = prev && !prev.isFree ? [nextFree, nextPaid] : [nextPaid, nextFree];
+      let stop = null;
+      for (const pick of order) { stop = pick(); if (stop) break; }
+      if (stop) { place(stop); continue; }
+      // Nothing makes sense right now (e.g. 5:30pm, dinner not till 6).
+      // Step forward instead of giving up on the rest of the date.
+      cursor += STEP;
     }
-    return chosen;
+    // Trailing gap is just the date ending early; don't pad with nothing.
+    return out;
   }
 
   // Cheapest single priced deal — used for honest "nothing fits your
@@ -555,6 +701,7 @@
   // what she chose last time.
   let swipePrefs = { budget: 'any', area: 'any', vibe: 'any' };
   let FREE_ACTIVITIES = [];
+  let PUBLIC_HOLIDAYS = new Map();
 
   // ============================================================
   // DISTANCE — straight-line, from stored coordinates.
@@ -571,8 +718,8 @@
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
   }
 
-  function nearestFreeActivity(toStop, usedIds, vibeLabel) {
-    const pool = FREE_ACTIVITIES.filter(f => !usedIds.has(f.id));
+  function nearestFreeActivity(toStop, usedIds, vibeLabel, extraFilter) {
+    const pool = FREE_ACTIVITIES.filter(f => !usedIds.has(f.id) && (!extraFilter || extraFilter(f)));
     if (!pool.length) return null;
     const scored = pool.map(f => {
       const km = haversineKm(toStop, f);
@@ -583,43 +730,6 @@
       return { f, score };
     }).sort((x, y) => x.score - y.score);
     return scored[0].f;
-  }
-
-  // Fills leftover time with free things near the paid stops, so a short
-  // or low-budget evening doesn't come back as a single lonely dinner.
-  function padWithFreeActivities(stops, minutesAvailable, vibeLabel) {
-    if (!FREE_ACTIVITIES.length) return stops;
-    const MIN_SLOT = 25;
-    const usedIds = new Set();
-    const out = [];
-    let remaining;
-
-    if (!stops.length) {
-      // Nothing paid fit the budget. Build a free plan rather than returning
-      // nothing — a free evening is a real answer, not a failure state.
-      remaining = minutesAvailable;
-      const seed = FREE_ACTIVITIES.find(f => (f.vibe || '').toLowerCase() === (vibeLabel || '').toLowerCase())
-                || FREE_ACTIVITIES[0];
-      out.push(seed); usedIds.add(seed.id); remaining -= seed.dur;
-    } else {
-      remaining = minutesAvailable - stops.reduce((m, s) => m + s.dur, 0);
-      for (const s of stops) {
-        out.push(s);
-        if (remaining < MIN_SLOT) continue;
-        const near = nearestFreeActivity(s, usedIds, vibeLabel);
-        if (near && near.dur <= remaining) {
-          out.push(near); usedIds.add(near.id); remaining -= near.dur;
-        }
-      }
-    }
-    // Still time going spare — keep adding near the last stop.
-    let guard = 0;
-    while (remaining >= MIN_SLOT && guard++ < 6) {
-      const near = nearestFreeActivity(out[out.length - 1], usedIds, vibeLabel);
-      if (!near || near.dur > remaining) break;
-      out.push(near); usedIds.add(near.id); remaining -= near.dur;
-    }
-    return out;
   }
 
   // ============================================================
@@ -829,7 +939,9 @@
     const budget = parseInt(document.getElementById('budget-slider').value) || 70;
     const time   = document.getElementById('p-time')?.value || '18:30';
     const dur    = parseInt(document.getElementById('p-dur')?.value) || 3;
-    const dateVal= document.getElementById('p-date')?.value;
+    // No date picked = planning for today.
+    const dateVal= document.getElementById('p-date')?.value || sgToday();
+    const day    = dayInfo(dateVal);
     const loc    = document.getElementById('p-loc')?.value || 'any';
     // 'any' is the filter value; show something human in the results pill.
     const locLabel = loc === 'any' ? 'Anywhere in Singapore' : loc + ', Singapore';
@@ -838,11 +950,12 @@
       : formatDate(new Date());
 
     document.getElementById('res-date-line').textContent =
-      dateStr + ' • ' + fmtTime(time) + ' • ' + dur + ' hours';
+      dateStr + ' • ' + fmtTime(time) + ' • ' + dur + ' hours' +
+      (day.holiday ? ' • Public holiday: ' + day.holiday : '');
 
     const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[curVibe] || 'Romantic';
-    const paidStops = pickItineraryStops(curVibe, budget, dur * 60, loc);
-    const stops = padWithFreeActivities(paidStops, dur * 60, vibeLabel);
+    const stops = buildItinerary(curVibe, budget, timeToMins(time), dur * 60, loc, day);
+    const paidStops = stops.filter(s => !s.isFree);
 
     // If nothing paid fits, say so plainly and name the real cheapest price
     // rather than quietly handing back a thin or over-budget plan.
@@ -871,6 +984,9 @@
     let tlHTML = '<div class="tl-spine"></div>';
 
     stops.forEach((s, i) => {
+      // Stops can start later than the previous one ended (waiting for
+      // dinner time), so use the builder's time, not a running total.
+      cursor = s.startAt ?? cursor;
       const endMins  = cursor + s.dur;
       const startStr = minsToTime(cursor);
       const endStr   = minsToTime(endMins);
@@ -1053,7 +1169,7 @@
         <p class="detail-desc">${escHtmlApp(d.desc)}</p>
         <div class="detail-meta-grid">
           <div class="detail-meta-item"><div class="detail-meta-label">Category</div><div class="detail-meta-val">${escHtmlApp(d.categoryName)}</div></div>
-          <div class="detail-meta-item"><div class="detail-meta-label">When</div><div class="detail-meta-val">${d.openingHours ? escHtmlApp(d.openingHours) : '<span class="meta-unknown">Hours not stated — check with venue</span>'}</div></div>
+          <div class="detail-meta-item"><div class="detail-meta-label">When</div><div class="detail-meta-val">${d.openingHours ? escHtmlApp(d.openingHours) : (dealDaysNote(d) ? '' : '<span class="meta-unknown">Hours not stated — check with venue</span>')}${dealDaysNote(d) ? `${d.openingHours ? '<br>' : ''}<span class="meta-days">${escHtmlApp(dealDaysNote(d))}</span>` : ''}</div></div>
           <div class="detail-meta-item"><div class="detail-meta-label">${d.endDate ? 'Offer ends' : 'Availability'}</div><div class="detail-meta-val">${d.endDate ? escHtmlApp(prettyDate(d.endDate)) : 'Ongoing'}</div></div>
           <div class="detail-meta-item"><div class="detail-meta-label">Location</div><div class="detail-meta-val">${escHtmlApp(d.location)}</div></div>
         </div>
@@ -1575,11 +1691,10 @@
   // ============================================================
   // INIT
   // ============================================================
-  const today = new Date();
   const pi = document.getElementById('p-date');
   if (pi) {
-    pi.value = today.toISOString().split('T')[0];
-    pi.min   = today.toISOString().split('T')[0];
+    pi.value = sgToday();
+    pi.min   = sgToday();
   }
 
   loadDealsAndCategories().then(() => {

@@ -48,6 +48,7 @@
 
   <div class="stats-row">
     <div class="stat-card"><div class="stat-val pink" id="stat-active">—</div><div class="stat-lbl">Active deals</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-scheduled">—</div><div class="stat-lbl">Scheduled</div></div>
     <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-lbl">Total deals</div></div>
     <div class="stat-card"><div class="stat-val" id="stat-expired">—</div><div class="stat-lbl">Expired</div></div>
   </div>
@@ -175,6 +176,42 @@
                 <label>End Date</label>
                 <input id="f-end-date" type="date">
               </div>
+            </div>
+
+            <div class="fg-hint">Leave Start Date blank to go live as soon as it's approved. Pick a future date and it goes live on that day automatically.</div>
+
+            <div class="fg">
+              <label style="margin-bottom:8px">Best time of day <span class="fg-opt">(tick all that apply, or none for any time)</span></label>
+              <div class="slot-row">
+                <label class="slot-chip"><input type="checkbox" name="f-slot" value="morning"><span>Morning</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-slot" value="midday"><span>Lunch</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-slot" value="afternoon"><span>Afternoon</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-slot" value="evening"><span>Evening</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-slot" value="late"><span>Late night</span></label>
+              </div>
+            </div>
+
+            <div class="fg">
+              <label style="margin-bottom:8px">Valid on <span class="fg-opt">(leave all unticked if it's every day)</span></label>
+              <div class="slot-row">
+                <label class="slot-chip"><input type="checkbox" name="f-day" value="mon"><span>Mon</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-day" value="tue"><span>Tue</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-day" value="wed"><span>Wed</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-day" value="thu"><span>Thu</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-day" value="fri"><span>Fri</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-day" value="sat"><span>Sat</span></label>
+                <label class="slot-chip"><input type="checkbox" name="f-day" value="sun"><span>Sun</span></label>
+              </div>
+            </div>
+
+            <!-- Only shown when the deal's dates and days cover a public holiday -->
+            <div class="fg ph-question" id="ph-question" style="display:none">
+              <div class="ph-q-text" id="ph-q-text"></div>
+              <div class="ph-bulk" id="ph-bulk">
+                <button type="button" class="ph-bulk-btn" onclick="setAllHolidays(true)">All valid</button>
+                <button type="button" class="ph-bulk-btn" onclick="setAllHolidays(false)">None valid</button>
+              </div>
+              <div id="ph-rows"></div>
             </div>
 
             <div class="fg">

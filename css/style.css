@@ -477,6 +477,7 @@
     .swipe-btn:hover{transform:scale(1.08)}
     .swipe-btn-pass{color:var(--red)}
     .swipe-btn-like{color:var(--pink)}
+    .meta-days{font-size:12px;font-weight:600;color:var(--muted)}
     .swipe-setup{text-align:left;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-sm)}
     .swipe-setup-group{margin-bottom:18px}
     .swipe-setup-label{font-size:13px;font-weight:700;margin-bottom:8px}

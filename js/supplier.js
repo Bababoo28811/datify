@@ -67,6 +67,8 @@ async function initSupplierDashboard() {
   // "Loading…" forever with no explanation.
   try {
     await loadCategories();
+    await loadPublicHolidays();
+    wireHolidayQuestion();
     await loadMyDeals();
   } catch (err) {
     console.error('Dashboard boot: failed to load data:', err);
@@ -188,6 +190,114 @@ async function deleteCategory(id) {
 let allDeals = [];
 let editingId = null;
 
+// Today's date in Singapore as YYYY-MM-DD (toISOString() is UTC).
+function sgToday() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
+}
+
+// Where a deal is in its life, worked out from its dates. Suppliers never
+// set this directly, so it can't disagree with the dates they entered.
+function dealPhase(d, today) {
+  if (d.start_date && d.start_date > today) return 'scheduled';
+  if (!d.ongoing && d.end_date && d.end_date < today) return 'expired';
+  return 'active';
+}
+
+function fmtShortDate(iso) {
+  return new Date(iso + 'T12:00').toLocaleDateString('en-SG', { day: 'numeric', month: 'short' });
+}
+
+// ============================================================
+// PUBLIC HOLIDAYS — if a deal's dates and days cover a holiday, the
+// supplier has to say whether it's valid that day before saving.
+// ============================================================
+let PUBLIC_HOLIDAYS = [];   // [{ day: 'YYYY-MM-DD', name }]
+// Don't ask about holidays on an untouched blank form; wait until the
+// supplier has filled in dates/days (or tries to save, or is editing).
+let holidayQuestionArmed = false;
+// The supplier's answers so far, kept across re-renders: { date: true/false }.
+let holidayAnswers = {};
+const DOW_KEYS = ['sun','mon','tue','wed','thu','fri','sat'];
+
+async function loadPublicHolidays() {
+  try {
+    const { data } = await db.from('public_holidays').select('day, name').order('day');
+    PUBLIC_HOLIDAYS = data || [];
+  } catch (err) {
+    // Not fatal: the question just won't appear.
+    console.error('Could not load public holidays:', err);
+  }
+}
+
+function addDays(iso, n) {
+  const d = new Date(iso + 'T12:00');
+  d.setDate(d.getDate() + n);
+  return new Intl.DateTimeFormat('en-CA').format(d);
+}
+
+// Holidays the deal as currently filled in would run over.
+// No end date / ongoing = look a year ahead.
+function holidaysCovered() {
+  const today   = sgToday();
+  const ongoing = document.getElementById('f-ongoing').checked;
+  const start   = document.getElementById('f-start-date').value || today;
+  const endVal  = document.getElementById('f-end-date').value;
+  const from    = start > today ? start : today;   // past holidays don't matter
+  const to      = (!ongoing && endVal) ? endVal : addDays(from, 365);
+  const days    = [...document.querySelectorAll('input[name="f-day"]:checked')].map(cb => cb.value);
+  return PUBLIC_HOLIDAYS.filter(h => {
+    if (h.day < from || h.day > to) return false;
+    const dow = DOW_KEYS[new Date(h.day + 'T12:00').getDay()];
+    return !days.length || days.length === 7 || days.includes(dow);
+  });
+}
+
+// Re-check whenever anything that affects the answer changes.
+function wireHolidayQuestion() {
+  const onChange = () => { holidayQuestionArmed = true; refreshHolidayQuestion(); };
+  ['f-start-date', 'f-end-date', 'f-ongoing'].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', onChange));
+  document.querySelectorAll('input[name="f-day"]').forEach(cb =>
+    cb.addEventListener('change', onChange));
+}
+
+function refreshHolidayQuestion() {
+  const box = document.getElementById('ph-question');
+  if (!box) return;
+  const hits = holidayQuestionArmed ? holidaysCovered() : [];
+  if (!hits.length) { box.style.display = 'none'; return; }
+
+  const label = h => {
+    const d = new Date(h.day + 'T12:00');
+    return `${escHtml(h.name)} <span class="ph-date">${d.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')}</span>`;
+  };
+  document.getElementById('ph-q-text').textContent =
+    `This deal runs over ${hits.length === 1 ? 'a public holiday' : hits.length + ' public holidays'}. Is it valid on each one?`;
+  document.getElementById('ph-rows').innerHTML = hits.map(h => {
+    const a = holidayAnswers[h.day];
+    return `<div class="ph-row">
+      <div class="ph-name">${label(h)}</div>
+      <div class="ph-opts">
+        <label class="slot-chip"><input type="radio" name="ph-${h.day}" value="yes" data-day="${h.day}" ${a === true ? 'checked' : ''}><span>Valid</span></label>
+        <label class="slot-chip"><input type="radio" name="ph-${h.day}" value="no" data-day="${h.day}" ${a === false ? 'checked' : ''}><span>Not valid</span></label>
+      </div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('#ph-rows input[type=radio]').forEach(r =>
+    r.addEventListener('change', () => { holidayAnswers[r.dataset.day] = r.value === 'yes'; }));
+  // Shortcuts only earn their space when there's a long list.
+  document.getElementById('ph-bulk').style.display = hits.length > 2 ? '' : 'none';
+  box.style.display = '';
+}
+
+// "All valid" / "None valid" shortcut buttons.
+function setAllHolidays(valid) {
+  holidaysCovered().forEach(h => { holidayAnswers[h.day] = valid; });
+  refreshHolidayQuestion();
+}
+
+const SLOT_LABELS = { morning: 'Morning', midday: 'Lunch', afternoon: 'Afternoon', evening: 'Evening', late: 'Late night' };
+
 async function loadMyDeals() {
   const tbody = document.getElementById('deals-tbody');
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>';
@@ -213,11 +323,12 @@ async function loadMyDeals() {
     return;
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = sgToday();
   tbody.innerHTML = allDeals.map(d => {
-    const active     = d.ongoing || !d.end_date || d.end_date >= today;
-    const statusCls  = active ? 'status-active' : 'status-expired';
-    const statusTxt  = active ? 'Active' : 'Expired';
+    const phase      = dealPhase(d, today);
+    const statusCls  = 'status-' + phase;
+    const statusTxt  = phase === 'scheduled' ? `Scheduled · live ${fmtShortDate(d.start_date)}`
+                     : phase === 'expired'   ? 'Expired' : 'Active';
     const endsTxt    = d.ongoing ? 'Ongoing' : (d.end_date || '—');
     const thumb      = d.image_url
       ? `<div class="deal-thumb"><img src="${escHtml(d.image_url)}" alt=""></div>`
@@ -246,10 +357,12 @@ async function loadMyDeals() {
 }
 
 function updateStats() {
-  const today   = new Date().toISOString().split('T')[0];
-  const active  = allDeals.filter(d => d.ongoing || !d.end_date || d.end_date >= today).length;
-  const expired = allDeals.filter(d => !d.ongoing && d.end_date && d.end_date < today).length;
+  const today     = sgToday();
+  const count     = ph => allDeals.filter(d => dealPhase(d, today) === ph).length;
+  const active    = count('active');
+  const expired   = count('expired');
   document.getElementById('stat-active').textContent  = active;
+  document.getElementById('stat-scheduled').textContent = count('scheduled');
   document.getElementById('stat-total').textContent   = allDeals.length;
   document.getElementById('stat-expired').textContent = expired;
 }
@@ -280,6 +393,13 @@ function startEdit(id) {
   document.getElementById('f-start-date').value   = deal.start_date     || '';
   document.getElementById('f-end-date').value     = deal.end_date       || '';
   document.getElementById('f-ongoing').checked    = deal.ongoing        || false;
+  document.querySelectorAll('input[name="f-slot"]').forEach(cb => {
+    cb.checked = (deal.time_slots || []).includes(cb.value);
+  });
+  document.querySelectorAll('input[name="f-day"]').forEach(cb => {
+    cb.checked = (deal.days || []).includes(cb.value);
+  });
+  holidayAnswers = { ...(deal.holiday_validity || {}) };
   document.getElementById('img-url-input').value  = deal.image_url      || '';
 
   if (deal.image_url) {
@@ -290,6 +410,8 @@ function startEdit(id) {
   }
 
   toggleOngoing(document.getElementById('f-ongoing'));
+  holidayQuestionArmed = true;
+  refreshHolidayQuestion();
   document.querySelector('.card:has(#deal-form)').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -301,6 +423,9 @@ function cancelEdit() {
   document.getElementById('editing-id').value             = '';
   document.getElementById('deal-form').reset();
   document.getElementById('end-date-wrap').style.display  = 'block';
+  holidayQuestionArmed = false;
+  holidayAnswers = {};
+  refreshHolidayQuestion();
   removeImg();
   document.getElementById('form-msg').style.display = 'none';
 }
@@ -334,6 +459,27 @@ async function submitDeal(e) {
     }
 
     const ongoing = document.getElementById('f-ongoing').checked;
+    const startDate = document.getElementById('f-start-date').value || null;
+    const endDate   = ongoing ? null : (document.getElementById('f-end-date').value || null);
+    if (startDate && endDate && endDate < startDate) {
+      throw new Error('End date is before the start date.');
+    }
+    // Nothing ticked = works any time of day.
+    const slots = [...document.querySelectorAll('input[name="f-slot"]:checked')].map(cb => cb.value);
+    // Nothing ticked (or all seven) = every day.
+    const days  = [...document.querySelectorAll('input[name="f-day"]:checked')].map(cb => cb.value);
+
+    // Holiday answers: every holiday the deal covers needs one. Answers for
+    // holidays it no longer covers are dropped.
+    holidayQuestionArmed = true;
+    refreshHolidayQuestion();
+    const covered = holidaysCovered();
+    const missing = covered.filter(h => typeof holidayAnswers[h.day] !== 'boolean');
+    if (missing.length) {
+      throw new Error(`Please say whether the deal is valid on ${missing.length === 1 ? missing[0].name : missing.length + ' of the public holidays'}.`);
+    }
+    const holidayValidity = {};
+    covered.forEach(h => { holidayValidity[h.day] = holidayAnswers[h.day]; });
 
     const payload = {
       supplier_id:    session.user.id,
@@ -347,8 +493,11 @@ async function submitDeal(e) {
       activity_type:  document.getElementById('f-activity').value.trim() || null,
       price_unit:     document.getElementById('f-price-unit').value || 'per person',
       opening_hours:  document.getElementById('f-hours').value.trim() || null,
-      start_date:     document.getElementById('f-start-date').value       || null,
-      end_date:       ongoing ? null : (document.getElementById('f-end-date').value || null),
+      start_date:     startDate,
+      end_date:       endDate,
+      time_slots:     slots.length ? slots : null,
+      days:           days.length && days.length < 7 ? days : null,
+      holiday_validity: holidayValidity,
       ongoing,
       image_url:      imageUrl,
       updated_at:     new Date().toISOString()
@@ -363,10 +512,14 @@ async function submitDeal(e) {
 
     if (error) throw error;
 
-    showMsg(msgEl, 'success', editingId ? '✓ Deal updated!' : '✓ Deal added!');
+    const scheduledNote = startDate && startDate > sgToday()
+      ? ` It'll go live on ${fmtShortDate(startDate)} once approved.` : '';
+    const doneMsg = (editingId ? '✓ Deal updated!' : '✓ Deal added!') + scheduledNote;
+    // cancelEdit() hides the message box, so reset the form first.
     cancelEdit();
+    showMsg(msgEl, 'success', doneMsg);
     await loadMyDeals();
-    setTimeout(() => (msgEl.style.display = 'none'), 2500);
+    setTimeout(() => (msgEl.style.display = 'none'), scheduledNote ? 6000 : 2500);
 
   } catch (err) {
     showMsg(msgEl, 'error', err.message || 'Something went wrong.');
