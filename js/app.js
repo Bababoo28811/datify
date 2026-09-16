@@ -350,7 +350,11 @@
         location: r.location || 'Singapore',
         tags: [r.vibe].filter(Boolean),
         desc: r.description || '',
-        best: r.ongoing ? 'Ongoing' : (r.start_date || 'Anytime'),
+        // Real availability, only where the source actually stated it.
+        // NULL stays NULL — the UI says "not stated" rather than the old
+        // "Anytime", which claimed something we never knew.
+        openingHours: r.opening_hours || null,
+        best: r.ongoing ? 'Ongoing' : (r.start_date || null),
         endDate: r.end_date || null,
         region: r.region || null,
         lat: r.latitude  != null ? Number(r.latitude)  : null,
@@ -395,6 +399,22 @@
   }
 
   // What the price is actually FOR. Shown under or beside every amount.
+  // "2026-09-30" is a database value, not something to show a person.
+  // Deals closing within a fortnight get a louder chip — that's the
+  // difference between "noted" and "go this weekend".
+  function isEndingSoon(iso) {
+    if (!iso) return false;
+    const days = (new Date(iso + 'T12:00') - new Date()) / 86400000;
+    return days >= 0 && days <= 14;
+  }
+
+  function prettyDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso + 'T12:00');
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
   function priceUnitLabel(d) {
     if (d.isFree)        return 'no ticket needed';
     if (d.discountLabel) return 'at the door';
@@ -969,6 +989,10 @@
         <div class="deal-body">
           <div class="deal-name">${escHtmlApp(d.name)}</div>
           <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
+          <div class="deal-meta-row">
+            ${d.openingHours ? `<span class="deal-chip">🕐 ${escHtmlApp(d.openingHours)}</span>` : ''}
+            ${d.endDate ? `<span class="deal-chip${isEndingSoon(d.endDate) ? ' urgent' : ''}">⏳ Ends ${escHtmlApp(prettyDate(d.endDate))}</span>` : '<span class="deal-chip">♾ Ongoing</span>'}
+          </div>
           <div class="deal-footer">
             <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : `${money(d.price)}<span>${priceUnitLabel(d).startsWith('/') ? '' : ' '}${priceUnitLabel(d)}</span>`)}${d.originalPrice ? ` <span class="deal-price-was">${money(d.originalPrice)}</span>` : ''}</div>
             <button class="deal-cta" onclick="event.stopPropagation();go('planner')">Add to plan</button>
@@ -1030,7 +1054,8 @@
         <p class="detail-desc">${escHtmlApp(d.desc)}</p>
         <div class="detail-meta-grid">
           <div class="detail-meta-item"><div class="detail-meta-label">Category</div><div class="detail-meta-val">${escHtmlApp(d.categoryName)}</div></div>
-          <div class="detail-meta-item"><div class="detail-meta-label">Best time</div><div class="detail-meta-val">${escHtmlApp(d.best)}</div></div>
+          <div class="detail-meta-item"><div class="detail-meta-label">When</div><div class="detail-meta-val">${d.openingHours ? escHtmlApp(d.openingHours) : '<span class="meta-unknown">Hours not stated — check with venue</span>'}</div></div>
+          <div class="detail-meta-item"><div class="detail-meta-label">${d.endDate ? 'Offer ends' : 'Availability'}</div><div class="detail-meta-val">${d.endDate ? escHtmlApp(prettyDate(d.endDate)) : 'Ongoing'}</div></div>
           <div class="detail-meta-item"><div class="detail-meta-label">Location</div><div class="detail-meta-val">${escHtmlApp(d.location)}</div></div>
         </div>
         ${d.imageIsStock ? `<p class="detail-source">Photo is a stock image for illustration — not a photo of this venue.</p>` : ''}
@@ -1039,7 +1064,6 @@
       <div class="detail-sidebar">
         <div class="sidebar-price">${priceLabel(d)}</div>
         <div class="sidebar-price-sub">${escHtmlApp(priceUnitLabel(d))}${d.originalPrice ? ` · usually ${money(d.originalPrice)}` : ''}</div>
-        ${d.endDate ? `<div class="sidebar-expiry">Ends ${escHtmlApp(d.endDate)}</div>` : ''}
         <button class="sidebar-btn primary" onclick="go('planner')">Add to plan</button>
         <button class="sidebar-btn secondary" id="save-deal-btn" data-deal-id="${d.id}" onclick="toggleSaveDeal('${d.id}', this)">${SAVED_DEAL_IDS.has(d.id) ? 'Saved ✓' : 'Save deal ♡'}</button>
       </div>`;

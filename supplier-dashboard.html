@@ -18,8 +18,8 @@
     </div>
     <span class="nav-brand">Datify</span>
   </a>
-  <span class="nav-badge">Supplier Dashboard</span>
   <div class="nav-right">
+    <span class="nav-badge">Supplier Dashboard</span>
     <a href="index.html" class="btn-back-site">← Back to Datify</a>
     <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
     <span class="nav-user" id="nav-seller-id" style="display:none"></span>
@@ -148,6 +148,22 @@
             <div class="fg">
               <label>Activity Type</label>
               <input id="f-activity" type="text" placeholder="e.g. Dining, Cruise, Workshop">
+            </div>
+
+            <div class="fg-row">
+              <div class="fg">
+                <label>Price is…</label>
+                <select id="f-price-unit">
+                  <option value="per person">Per person</option>
+                  <option value="total">Total (for the table)</option>
+                  <option value="per item">Per item / dish</option>
+                  <option value="min spend">Minimum spend</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>When it's available</label>
+                <input id="f-hours" type="text" placeholder="e.g. Mon–Fri, 12–3pm">
+              </div>
             </div>
 
             <div class="fg-row">

@@ -275,6 +275,8 @@ function startEdit(id) {
   document.getElementById('f-category').value     = deal.category_id    || '';
   document.getElementById('f-vibe').value         = deal.vibe           || '';
   document.getElementById('f-activity').value     = deal.activity_type  || '';
+  document.getElementById('f-price-unit').value   = deal.price_unit     || 'per person';
+  document.getElementById('f-hours').value        = deal.opening_hours  || '';
   document.getElementById('f-start-date').value   = deal.start_date     || '';
   document.getElementById('f-end-date').value     = deal.end_date       || '';
   document.getElementById('f-ongoing').checked    = deal.ongoing        || false;
@@ -343,6 +345,8 @@ async function submitDeal(e) {
       category_id:    document.getElementById('f-category').value        || null,
       vibe:           document.getElementById('f-vibe').value             || null,
       activity_type:  document.getElementById('f-activity').value.trim() || null,
+      price_unit:     document.getElementById('f-price-unit').value || 'per person',
+      opening_hours:  document.getElementById('f-hours').value.trim() || null,
       start_date:     document.getElementById('f-start-date').value       || null,
       end_date:       ongoing ? null : (document.getElementById('f-end-date').value || null),
       ongoing,
