@@ -40,6 +40,12 @@
                padding:3px 12px;border-radius:100px;letter-spacing:0.4px}
     .nav-right{display:flex;align-items:center;gap:12px}
     .nav-user{font-size:13px;color:var(--muted);font-weight:500}
+    /* Way back to the main site — suppliers are no longer auto-redirected
+       into this dashboard, so they need an obvious exit. */
+    .btn-back-site{padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;
+                   border:1.5px solid var(--border);color:var(--text);text-decoration:none;
+                   transition:all 0.15s;white-space:nowrap}
+    .btn-back-site:hover{border-color:var(--pink);color:var(--pink)}
     .btn-logout{padding:8px 18px;border-radius:10px;font-size:13px;font-weight:700;
                 cursor:pointer;border:1.5px solid var(--border);background:transparent;
                 color:var(--text);font-family:'Inter',sans-serif;transition:all 0.15s}
@@ -53,7 +59,7 @@
 
     /* ── STATS ── */
     .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:32px}
-    .stat-card{background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);
+    .stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-sm);
                padding:18px 20px;box-shadow:var(--shadow-sm)}
     .stat-val{font-size:26px;font-weight:800;color:var(--text)}
     .stat-val.pink{color:var(--pink)}
@@ -64,7 +70,7 @@
     .dash-grid{display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start}
 
     /* ── CARDS ── */
-    .card{background:#fff;border:1px solid var(--border);border-radius:var(--r);
+    .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);
           box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:20px}
     .card:last-child{margin-bottom:0}
     .card-head{padding:18px 24px;border-bottom:1px solid var(--border);

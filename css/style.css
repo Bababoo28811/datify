@@ -120,7 +120,7 @@
                           border-radius:12px;font-size:14px;font-family:'Inter',sans-serif;
                           background:var(--bg);color:var(--text);outline:none;transition:border-color 0.15s}
     .profile-field input:focus{border-color:var(--pink)}
-    .profile-field input[readonly]{background:#f9f9f9;color:var(--muted);cursor:not-allowed}
+    .profile-field input[readonly]{background:var(--bg);color:var(--muted);cursor:not-allowed}
     .profile-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .profile-save-btn{padding:12px 28px;border-radius:12px;font-size:14px;font-weight:700;
                        cursor:pointer;border:none;background:var(--pink);color:var(--on-accent);

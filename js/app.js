@@ -61,6 +61,21 @@
     document.getElementById('nav-hamburger').classList.remove('open');
   }
 
+  // Adds a "Supplier Dashboard" entry to the menu, only for whitelisted
+  // suppliers (and the admin). This is how a supplier gets back to their
+  // dashboard now that they're no longer force-redirected there.
+  function showSupplierNavLink() {
+    const menu = document.getElementById('nav-mobile-menu');
+    if (!menu || document.getElementById('nav-supplier-link')) return;
+    const link = document.createElement('button');
+    link.className = 'nav-link nav-supplier-link';
+    link.id = 'nav-supplier-link';
+    link.textContent = '🏪 Supplier Dashboard';
+    link.onclick = () => { window.location.href = 'supplier-dashboard.html'; };
+    const authArea = menu.querySelector('.nav-mobile-auth');
+    menu.insertBefore(link, authArea || null);
+  }
+
   // ============================================================
   // ✅ STEP 3 — Sign Up (with full validation)
   // ============================================================
@@ -1257,14 +1272,19 @@
   });
 
   // Check if already logged in on page load.
-  // If a supplier lands on index.html while already signed in,
-  // silently bounce them to their dashboard.
+  //
+  // Deliberately does NOT redirect suppliers to their dashboard any more.
+  // It used to, which trapped them: a signed-in supplier clicking the logo
+  // to browse the site was bounced straight back to the dashboard, so they
+  // could never use Datify as a normal visitor. Suppliers are sent to the
+  // dashboard once, right after they log in; from then on they get there
+  // via the "Supplier Dashboard" link that appears in their menu.
   db.auth.getSession().then(async ({ data: { session } }) => {
     updateNavForAuth(session?.user ?? null);
     if (session?.user) {
       const supplier = await isSupplierEmail(session.user.email);
-      if (supplier) {
-        window.location.href = 'supplier-dashboard.html';
+      if (supplier || session.user.email === ADMIN_EMAIL) {
+        showSupplierNavLink();
       }
     }
   }).catch(err => {
