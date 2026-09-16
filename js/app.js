@@ -742,7 +742,7 @@
     stack.innerHTML = [next, cur].filter(Boolean).map((d, i) => {
       const isTop = d === cur;
       const media = d.image
-        ? `<img src="${escHtmlApp(d.image)}" style="width:100%;height:100%;object-fit:cover">`
+        ? `<img src="${escHtmlApp(d.image)}" draggable="false" style="width:100%;height:100%;object-fit:cover">`
         : `<span style="font-size:64px">${d.emoji}</span>`;
       return `
         <div class="swipe-card${isTop ? ' swipe-card-top' : ''}" id="${isTop ? 'swipe-card-top' : 'swipe-card-behind'}" style="background:${d.bg}">
@@ -757,42 +757,54 @@
     attachSwipeDrag(document.getElementById('swipe-card-top'));
   }
 
+  // Pointer Events + setPointerCapture. Two reasons this shape matters:
+  //   1. Every listener lives on the card itself, so when the card is
+  //      replaced the listeners die with it. The old version attached
+  //      mousemove/mouseup to `window` on every render and never removed
+  //      them, so stale listeners piled up pointing at detached cards.
+  //   2. preventDefault() on pointerdown stops the browser's native
+  //      image drag — that's what made the photo stick to the cursor.
   function attachSwipeDrag(card) {
     if (!card) return;
     let startX = 0, curX = 0, dragging = false;
     card.style.transition = 'none';
 
-    function onDown(e) {
+    card.addEventListener('dragstart', e => e.preventDefault());
+
+    card.addEventListener('pointerdown', e => {
+      // Stops the native drag-image ghost from latching onto the cursor.
+      e.preventDefault();
       dragging = true;
-      startX = (e.touches ? e.touches[0].clientX : e.clientX);
+      startX = e.clientX;
+      curX = 0;
       card.style.transition = 'none';
-    }
-    function onMove(e) {
+      card.setPointerCapture(e.pointerId);
+    });
+
+    card.addEventListener('pointermove', e => {
       if (!dragging) return;
-      curX = (e.touches ? e.touches[0].clientX : e.clientX) - startX;
+      curX = e.clientX - startX;
       card.style.transform = `translateX(${curX}px) rotate(${curX / 18}deg)`;
-    }
-    function onUp() {
+    });
+
+    function endDrag(e) {
       if (!dragging) return;
       dragging = false;
+      if (card.hasPointerCapture && e && card.hasPointerCapture(e.pointerId)) {
+        card.releasePointerCapture(e.pointerId);
+      }
       const threshold = 110;
-      if (curX > threshold) {
-        swipeCommit('right');
-      } else if (curX < -threshold) {
-        swipeCommit('left');
-      } else {
+      if (curX > threshold)       swipeCommit('right');
+      else if (curX < -threshold) swipeCommit('left');
+      else {
         card.style.transition = 'transform 0.25s';
-        card.style.transform = 'translateX(0) rotate(0)';
+        card.style.transform  = 'translateX(0) rotate(0)';
       }
       curX = 0;
     }
 
-    card.addEventListener('mousedown', onDown);
-    card.addEventListener('touchstart', onDown, { passive: true });
-    window.addEventListener('mousemove', onMove);
-    card.addEventListener('touchmove', onMove, { passive: true });
-    window.addEventListener('mouseup', onUp);
-    card.addEventListener('touchend', onUp);
+    card.addEventListener('pointerup', endDrag);
+    card.addEventListener('pointercancel', endDrag);
   }
 
   function swipeButton(direction) {
