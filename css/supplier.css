@@ -57,6 +57,16 @@
     .page-head h1{font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}
     .page-head p{font-size:14px;color:var(--muted)}
 
+    /* Admin-preview note — sits under the heading, out of the nav's way */
+    .admin-preview-note{display:flex;align-items:flex-start;gap:12px;
+                        background:var(--pink-light);border:1px solid var(--border);
+                        border-radius:var(--r-sm);padding:13px 16px;margin:-16px 0 28px;
+                        font-size:13.5px;line-height:1.55;color:var(--muted)}
+    .admin-preview-note strong{color:var(--text)}
+    .admin-preview-note #admin-preview-email{color:var(--pink);font-weight:700}
+    .admin-preview-dot{width:8px;height:8px;border-radius:50%;background:var(--pink);
+                       flex-shrink:0;margin-top:6px}
+
     /* ── STATS ── */
     .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:32px}
     .stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-sm);

@@ -400,11 +400,19 @@
     if (d.discountLabel) return 'at the door';
     if (d.price === 0)   return '';
     switch (d.priceUnit) {
-      case 'total':     return 'for the table';
-      case 'per item':  return 'per dish';
+      case 'total':     return 'total';
+      case 'per item':  return '/dish';
       case 'min spend': return 'min. spend';
-      default:          return 'per person';
+      default:          return '/pax';
     }
+  }
+
+  // "/pax" and "/dish" read as one token with the number ($25/pax), while
+  // worded units need breathing room ($40 total).
+  function priceWithUnit(d) {
+    const unit = priceUnitLabel(d);
+    if (!unit) return money(d.price);
+    return unit.startsWith('/') ? money(d.price) + unit : money(d.price) + ' ' + unit;
   }
 
   // Single source of truth for how a deal's price is shown. A deal is
@@ -962,7 +970,7 @@
           <div class="deal-name">${escHtmlApp(d.name)}</div>
           <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
           <div class="deal-footer">
-            <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : money(d.price) + ` <span>${priceUnitLabel(d)}</span>`)}${d.originalPrice ? ` <span class="deal-price-was">${money(d.originalPrice)}</span>` : ''}</div>
+            <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : `${money(d.price)}<span>${priceUnitLabel(d).startsWith('/') ? '' : ' '}${priceUnitLabel(d)}</span>`)}${d.originalPrice ? ` <span class="deal-price-was">${money(d.originalPrice)}</span>` : ''}</div>
             <button class="deal-cta" onclick="event.stopPropagation();go('planner')">Add to plan</button>
           </div>
         </div>
@@ -1130,7 +1138,7 @@
           <div class="swipe-card-info">
             <div class="swipe-card-name">${escHtmlApp(d.name)}</div>
             <div class="swipe-card-loc">📍 ${escHtmlApp(d.location)}</div>
-            <div class="swipe-card-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? 'Free' : money(d.price) + ' ' + priceUnitLabel(d))}</div>
+            <div class="swipe-card-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? 'Free' : priceWithUnit(d))}</div>
           </div>
         </div>`;
     }).join('');

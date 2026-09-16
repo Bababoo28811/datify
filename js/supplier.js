@@ -55,10 +55,12 @@ async function initSupplierDashboard() {
     sellerIdEl.style.display = '';
   }
   if (isAdmin && (!data || whitelistError)) {
-    // Make it obvious this is a preview, not a real supplier account —
-    // "My Deals" will be empty because no deals belong to this account.
-    const badge = document.querySelector('.nav-badge');
-    if (badge) badge.textContent = 'Supplier Dashboard (admin preview)';
+    // Shown as a note under the page heading rather than crammed into the
+    // nav badge, which made the top bar cluttered.
+    const note  = document.getElementById('admin-preview-note');
+    const email = document.getElementById('admin-preview-email');
+    if (email) email.textContent = session.user.email;
+    if (note)  note.style.display = 'flex';
   }
 
   // Load data — failures here shouldn't leave the page stuck on

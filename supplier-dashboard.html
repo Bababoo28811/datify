@@ -34,6 +34,18 @@
     <p>Manage your deals, categories and listings</p>
   </div>
 
+  <!-- Only shown when the founder account is viewing this as an admin
+       rather than as a real whitelisted supplier. Lives here rather than
+       in the nav badge, which it made cramped and awkward. -->
+  <div class="admin-preview-note" id="admin-preview-note" style="display:none">
+    <span class="admin-preview-dot"></span>
+    <div>
+      <strong>Admin preview.</strong> You're seeing the supplier view as
+      <span id="admin-preview-email"></span>. "My Deals" is empty because no deals
+      belong to this account — that's expected, not a bug.
+    </div>
+  </div>
+
   <div class="stats-row">
     <div class="stat-card"><div class="stat-val pink" id="stat-active">—</div><div class="stat-lbl">Active deals</div></div>
     <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-lbl">Total deals</div></div>
