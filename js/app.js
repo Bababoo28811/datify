@@ -551,6 +551,9 @@
   let currentContactTab = 'support';
   let swipeDeals = [];
   let swipeIndex = 0;
+  // Setup picks, kept for the session so "Change filters" reopens with
+  // what she chose last time.
+  let swipePrefs = { budget: 'any', area: 'any', vibe: 'any' };
   let FREE_ACTIVITIES = [];
 
   // ============================================================
@@ -1127,9 +1130,123 @@
   // (client-side only for this session; nothing is stored for a pass).
   // ============================================================
   function buildSwipe() {
-    swipeDeals = DEALS.filter(d => !SAVED_DEAL_IDS.has(d.id));
+    // Always open on the setup screen: the whole point is that the deck is
+    // sorted by what she's told us before she swipes anything.
+    showSwipeSetup();
+  }
+
+  function showSwipeSetup() {
+    const setup = document.getElementById('swipe-setup');
+    const deck  = document.getElementById('swipe-deck');
+    if (!setup || !deck) return;
+    setup.querySelectorAll('.swipe-setup-chips').forEach(group => {
+      const key = group.dataset.group;
+      group.querySelectorAll('.chip').forEach(btn => {
+        btn.classList.toggle('on', btn.dataset.val === swipePrefs[key]);
+        btn.onclick = () => {
+          group.querySelectorAll('.chip').forEach(b => b.classList.remove('on'));
+          btn.classList.add('on');
+          swipePrefs[key] = btn.dataset.val;
+        };
+      });
+    });
+    setup.style.display = '';
+    deck.style.display  = 'none';
+    const sub = document.getElementById('swipe-subtitle');
+    if (sub) sub.textContent = 'Tell us what you want first, so you only swipe what fits';
+  }
+
+  // What one person actually pays, for budget comparison.
+  //   - "total" prices are for two, so halve them.
+  //   - percentage-only offers have no price: return null (unknown).
+  function perPersonPrice(d) {
+    if (d.discountLabel) return null;
+    if (d.priceUnit === 'total') return d.price / 2;
+    return d.price;
+  }
+
+  // Which of her picks a deal misses. Empty array = full match.
+  // Unknown price (percentage offers) counts as fitting the budget —
+  // we can't prove it's over, and hiding every "20% off" would be worse.
+  function swipeMisses(d, prefs) {
+    const misses = [];
+    if (prefs.budget !== 'any') {
+      const pp = perPersonPrice(d);
+      if (pp != null && pp > Number(prefs.budget)) misses.push('budget');
+    }
+    if (prefs.area !== 'any' && d.region !== prefs.area) misses.push('area');
+    if (prefs.vibe !== 'any' && (d.vibe || '').toLowerCase() !== prefs.vibe.toLowerCase()) misses.push('vibe');
+    return misses;
+  }
+
+  // "in Central" but "in the East" — reads the way people say it here.
+  function inArea(region) {
+    return region === 'Central' ? 'in Central' : `in the ${region}`;
+  }
+
+  // Builds "romantic deals under $30 in Central" style phrases.
+  //   describePrefs(prefs)          -> "romantic under $30 in Central"
+  //   describePrefs(prefs, 'deal')  -> "romantic deal under $30 in Central"
+  function describePrefs(prefs, noun) {
+    const bits = [];
+    if (prefs.vibe !== 'any') bits.push(prefs.vibe.toLowerCase());
+    if (noun) bits.push(noun);
+    if (prefs.budget !== 'any') bits.push(`under $${prefs.budget}`);
+    if (prefs.area !== 'any') bits.push(inArea(prefs.area));
+    return bits.join(' ');
+  }
+
+  function startSwipeDeck() {
+    const prefs = swipePrefs;
+    const pool = DEALS.filter(d => !SAVED_DEAL_IDS.has(d.id))
+      .map(d => ({ d, misses: swipeMisses(d, prefs), pp: perPersonPrice(d) }));
+
+    // Matches: priced deals cheapest first, then percentage offers.
+    const byPrice = (a, b) => (a.pp == null) - (b.pp == null) || (a.pp ?? 0) - (b.pp ?? 0);
+    const matches = pool.filter(x => !x.misses.length).sort(byPrice);
+
+    // Stretch: closest misses first. A wrong area costs 1, a wrong vibe
+    // 0.5, and going over budget costs the fraction it's over by — so a
+    // $19.90 in her area (+33%) beats a $3.90 across the island, and a
+    // $98 buffet (+553%) sinks to the bottom.
+    const budget = prefs.budget === 'any' ? null : Number(prefs.budget);
+    const distance = x => {
+      let score = 0;
+      if (x.misses.includes('area')) score += 1;
+      if (x.misses.includes('vibe')) score += 0.5;
+      if (x.misses.includes('budget')) score += (x.pp - budget) / budget;
+      return score;
+    };
+    const stretch = pool.filter(x => x.misses.length)
+      .sort((a, b) => distance(a) - distance(b) || byPrice(a, b));
+
+    swipeDeals = matches.map(x => x.d);
+    if (stretch.length) {
+      swipeDeals.push({ divider: true, matchCount: matches.length, label: describePrefs(prefs) });
+      swipeDeals.push(...stretch.map(x => ({ ...x.d, stretchNote: stretchNote(x.misses, x.d) })));
+    }
     swipeIndex = 0;
+
+    document.getElementById('swipe-setup').style.display = 'none';
+    document.getElementById('swipe-deck').style.display  = '';
+    const sub = document.getElementById('swipe-subtitle');
+    if (sub) {
+      const label = describePrefs(prefs);
+      sub.textContent = !label ? 'Right to shortlist, left to pass'
+        : matches.length
+          ? `${matches.length} ${describePrefs(prefs, matches.length === 1 ? 'deal' : 'deals')} · right to shortlist, left to pass`
+          : `No exact matches ${label} yet · showing the closest`;
+    }
     renderSwipeStack();
+  }
+
+  // Small honest label on stretch cards so she knows WHY it's there.
+  function stretchNote(misses, d) {
+    const parts = [];
+    if (misses.includes('budget')) parts.push('over budget');
+    if (misses.includes('area') && d.region) parts.push(inArea(d.region));
+    if (misses.includes('vibe') && d.vibe) parts.push(`${d.vibe.toLowerCase()} vibe`);
+    return parts.join(' · ');
   }
 
   function renderSwipeStack() {
@@ -1141,20 +1258,39 @@
           <h3>That's everything for now</h3>
           <p>Check back later for new deals, or view what you've shortlisted.</p>
           <button class="btn-pink" onclick="go('saved')">View Saved →</button>
+          <button class="btn-outline" style="margin-top:8px" onclick="showSwipeSetup()">Change filters</button>
         </div>`;
       return;
     }
     // Render current + next card (next sits behind, for a subtle stack effect)
     const cur  = swipeDeals[swipeIndex];
     const next = swipeDeals[swipeIndex + 1];
-    stack.innerHTML = [next, cur].filter(Boolean).map((d, i) => {
+    stack.innerHTML = [next, cur].filter(Boolean).map(d => {
       const isTop = d === cur;
+      const idAttr = isTop ? 'swipe-card-top' : 'swipe-card-behind';
+      if (d.divider) {
+        const what = d.label ? `everything ${escHtmlApp(d.label)}` : 'everything that matches';
+        const head = d.matchCount
+          ? `That's ${what}`
+          : `Nothing matches ${d.label ? escHtmlApp(d.label) : 'that'} yet`;
+        return `
+        <div class="swipe-card swipe-divider${isTop ? ' swipe-card-top' : ''}" id="${idAttr}">
+          <div class="swipe-divider-inner">
+            <div class="es-icon">🧭</div>
+            <h3>${head}</h3>
+            <p>Here's what's close if you stretch a bit. Swipe either way to keep going.</p>
+            <button class="btn-outline" onclick="event.stopPropagation();showSwipeSetup()" onpointerdown="event.stopPropagation()">Change filters</button>
+          </div>
+        </div>`;
+      }
       const media = d.image
         ? `<img src="${escHtmlApp(d.image)}" draggable="false" style="width:100%;height:100%;object-fit:cover">`
         : `<span style="font-size:64px">${d.emoji}</span>`;
+      const note = d.stretchNote ? `<div class="swipe-stretch-note">${escHtmlApp(d.stretchNote)}</div>` : '';
       return `
-        <div class="swipe-card${isTop ? ' swipe-card-top' : ''}" id="${isTop ? 'swipe-card-top' : 'swipe-card-behind'}" style="background:${d.bg}">
+        <div class="swipe-card${isTop ? ' swipe-card-top' : ''}" id="${idAttr}" style="background:${d.bg}">
           ${media}
+          ${note}
           <div class="swipe-card-info">
             <div class="swipe-card-name">${escHtmlApp(d.name)}</div>
             <div class="swipe-card-loc">📍 ${escHtmlApp(d.location)}</div>
@@ -1227,7 +1363,8 @@
       card.style.transform = `translateX(${direction === 'right' ? 600 : -600}px) rotate(${direction === 'right' ? 25 : -25}deg)`;
       card.style.opacity = '0';
     }
-    if (direction === 'right' && deal) {
+    // The divider isn't a deal: either direction just moves past it.
+    if (direction === 'right' && deal && !deal.divider) {
       toggleSaveDeal(deal.id);
     }
     swipeIndex++;

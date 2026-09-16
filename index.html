@@ -332,12 +332,52 @@
     <div class="swipe-wrap">
       <div class="swipe-header">
         <h1>Swipe <span style="color:var(--pink)">deals</span></h1>
-        <p>Right to shortlist, left to pass</p>
+        <p id="swipe-subtitle">Right to shortlist, left to pass</p>
       </div>
+
+      <!-- Setup: runs before the deck so it can be sorted by what she wants -->
+      <div id="swipe-setup" class="swipe-setup">
+        <div class="swipe-setup-group">
+          <div class="swipe-setup-label">Budget per person</div>
+          <div class="swipe-setup-chips" data-group="budget">
+            <button class="chip" data-val="15">Under $15</button>
+            <button class="chip" data-val="30">Under $30</button>
+            <button class="chip" data-val="50">Under $50</button>
+            <button class="chip on" data-val="any">Any</button>
+          </div>
+        </div>
+        <div class="swipe-setup-group">
+          <div class="swipe-setup-label">Area</div>
+          <div class="swipe-setup-chips" data-group="area">
+            <button class="chip on" data-val="any">Anywhere</button>
+            <button class="chip" data-val="Central">Central</button>
+            <button class="chip" data-val="East">East</button>
+            <button class="chip" data-val="West">West</button>
+            <button class="chip" data-val="North">North</button>
+            <button class="chip" data-val="North-East">North-East</button>
+          </div>
+        </div>
+        <div class="swipe-setup-group">
+          <div class="swipe-setup-label">Vibe <span class="swipe-setup-opt">(optional)</span></div>
+          <div class="swipe-setup-chips" data-group="vibe">
+            <button class="chip" data-val="Romantic">🌹 Romantic</button>
+            <button class="chip" data-val="Fun">🎉 Fun</button>
+            <button class="chip" data-val="Chill">☕ Chill</button>
+            <button class="chip" data-val="Foodie">🍜 Foodie</button>
+            <button class="chip" data-val="Adventurous">🧗 Adventurous</button>
+            <button class="chip on" data-val="any">✨ Surprise me</button>
+          </div>
+        </div>
+        <button class="btn-pink swipe-setup-go" onclick="startSwipeDeck()">Start swiping →</button>
+      </div>
+
+      <div id="swipe-deck" style="display:none">
+      <button class="swipe-change-btn" onclick="showSwipeSetup()">⚙ Change filters</button>
       <div class="swipe-stack" id="swipe-stack"></div>
       <div class="swipe-actions">
         <button class="swipe-btn swipe-btn-pass" onclick="swipeButton('left')" title="Pass" aria-label="Pass">✕</button>
         <button class="swipe-btn swipe-btn-like" onclick="swipeButton('right')" title="Shortlist" aria-label="Shortlist">♡</button>
+      </div>
       </div>
     </div>
   </div>

@@ -477,6 +477,21 @@
     .swipe-btn:hover{transform:scale(1.08)}
     .swipe-btn-pass{color:var(--red)}
     .swipe-btn-like{color:var(--pink)}
+    .swipe-setup{text-align:left;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-sm)}
+    .swipe-setup-group{margin-bottom:18px}
+    .swipe-setup-label{font-size:13px;font-weight:700;margin-bottom:8px}
+    .swipe-setup-opt{font-weight:500;color:var(--muted)}
+    .swipe-setup-chips{display:flex;flex-wrap:wrap;gap:8px}
+    .swipe-setup-chips .chip{padding:7px 14px}
+    .swipe-setup-go{width:100%;margin-top:4px}
+    .swipe-change-btn{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;margin:-12px 0 12px;font-family:inherit}
+    .swipe-change-btn:hover{color:var(--pink)}
+    .swipe-divider{background:var(--white);border:1.5px dashed var(--border)}
+    .swipe-divider-inner{padding:28px;text-align:center}
+    .swipe-divider-inner .es-icon{font-size:44px}
+    .swipe-divider-inner h3{font-size:18px;font-weight:800;margin:8px 0 6px}
+    .swipe-divider-inner p{color:var(--muted);font-size:14px;margin-bottom:16px}
+    .swipe-stretch-note{position:absolute;top:14px;left:14px;background:rgba(0,0,0,0.6);color:#fff;font-size:12px;font-weight:600;padding:5px 10px;border-radius:100px}
 
     /* CONTACT */
     .contact-wrap{max-width:520px;margin:0 auto;padding:40px 16px 60px}
