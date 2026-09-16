@@ -218,10 +218,32 @@
 
   async function loadDealsAndCategories() {
     try {
-      const [catRes, dealRes] = await Promise.all([
+      const [catRes, dealRes, freeRes] = await Promise.all([
         db.from('categories').select('id, name').order('name'),
-        db.from('deals').select('*, categories(name)').order('created_at', { ascending: false })
+        db.from('deals').select('*, categories(name)').order('created_at', { ascending: false }),
+        db.from('free_activities').select('*').eq('active', true)
       ]);
+
+      // Free things to do, used to pad out an itinerary when the budget
+      // and time aren't used up by paid deals.
+      FREE_ACTIVITIES = (freeRes.data || []).map(f => ({
+        id: 'free-' + f.id,
+        name: f.name,
+        desc: f.description,
+        location: f.location,
+        region: f.region,
+        lat: f.latitude  != null ? Number(f.latitude)  : null,
+        lng: f.longitude != null ? Number(f.longitude) : null,
+        price: 0,
+        dur: f.duration_mins || 45,
+        vibe: f.vibe || '',
+        categoryName: 'Free to do',
+        type: 'free',
+        isFree: true,
+        image: f.image_url || null,
+        bg: '#F1F5F9',
+        emoji: '🚶'
+      }));
 
       CATEGORIES = catRes.data || [];
 
@@ -251,6 +273,9 @@
         desc: r.description || '',
         best: r.ongoing ? 'Ongoing' : (r.start_date || 'Anytime'),
         endDate: r.end_date || null,
+        region: r.region || null,
+        lat: r.latitude  != null ? Number(r.latitude)  : null,
+        lng: r.longitude != null ? Number(r.longitude) : null,
         dur: 60,
         image: r.image_url || null,
         bg: '#FFF0F2',
@@ -296,29 +321,51 @@
     // them would silently understate the itinerary total. Keep them out of
     // auto-generated plans rather than costing them at $0.
     const costable = DEALS.filter(hasFixedPrice);
-    let pool = costable.filter(d => (d.vibe || '').toLowerCase() === vibeLabel.toLowerCase());
-    if (pool.length === 0) pool = costable.slice();
+    if (!costable.length) return [];
 
-    const sorted = pool.slice().sort((a, b) => a.price - b.price);
+    // Lower score = picked sooner. Three fixes over the first version:
+    //   1. Budget now applies to EVERY stop including the first. Before,
+    //      stop #1 went in regardless, so a $15 budget could return a $25 tea.
+    //   2. A category may appear twice (dinner AND dessert) — the old
+    //      one-per-category rule meant that with most deals tagged "Dining",
+    //      a plan could only ever hold one food stop.
+    //   3. Shortlisted deals are preferred, so saving things actually shapes
+    //      your plan — but a shortlist is never required to get a result.
+    const score = d => {
+      let s = d.price / 1000; // cheaper breaks ties without dominating
+      if (SAVED_DEAL_IDS.has(d.id)) s -= 100;
+      if ((d.vibe || '').toLowerCase() === vibeLabel.toLowerCase()) s -= 50;
+      return s;
+    };
+    const sorted = costable.slice().sort((a, b) => score(a) - score(b));
+
+    const MAX_STOPS = 4, MAX_PER_CAT = 2;
     const chosen = [];
-    const usedCats = new Set();
+    const catCount = new Map();
     let total = 0;
 
-    for (const d of sorted) {
-      if (chosen.length >= 4) break;
-      if (usedCats.has(d.type)) continue;
-      if (chosen.length > 0 && total + d.price > budget) continue;
-      chosen.push(d); usedCats.add(d.type); total += d.price;
-    }
-    if (chosen.length < 2) {
-      chosen.length = 0; total = 0;
+    // Pass 1 keeps variety (one per category); pass 2 allows a second from a
+    // category if there's still room and budget left.
+    for (const maxPerCat of [1, MAX_PER_CAT]) {
       for (const d of sorted) {
-        if (chosen.length >= 3) break;
-        if (chosen.length > 0 && total + d.price > budget) break;
-        chosen.push(d); total += d.price;
+        if (chosen.length >= MAX_STOPS) break;
+        if (chosen.includes(d)) continue;
+        if ((catCount.get(d.type) || 0) >= maxPerCat) continue;
+        if (total + d.price > budget) continue;
+        chosen.push(d);
+        catCount.set(d.type, (catCount.get(d.type) || 0) + 1);
+        total += d.price;
       }
     }
     return chosen;
+  }
+
+  // Cheapest single priced deal — used for honest "nothing fits your
+  // budget" copy instead of silently returning a thin or over-budget plan.
+  function cheapestDeal() {
+    const costable = DEALS.filter(hasFixedPrice);
+    if (!costable.length) return null;
+    return costable.slice().sort((a, b) => a.price - b.price)[0];
   }
 
   let curVibe = 'romantic';
@@ -331,6 +378,73 @@
   let currentContactTab = 'support';
   let swipeDeals = [];
   let swipeIndex = 0;
+  let FREE_ACTIVITIES = [];
+
+  // ============================================================
+  // DISTANCE — straight-line, from stored coordinates.
+  // Deliberately NOT a travel-time estimate: OneMap's routing API
+  // needs a token that can't live in client-side code, so we show an
+  // honest "X km apart" instead of inventing a journey time.
+  // ============================================================
+  function haversineKm(a, b) {
+    if (!a || !b || a.lat == null || b.lat == null) return null;
+    const R = 6371, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+    const s = Math.sin(dLat/2)**2 +
+              Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+  }
+
+  function nearestFreeActivity(toStop, usedIds, vibeLabel) {
+    const pool = FREE_ACTIVITIES.filter(f => !usedIds.has(f.id));
+    if (!pool.length) return null;
+    const scored = pool.map(f => {
+      const km = haversineKm(toStop, f);
+      // Unknown distance sorts last; a matching vibe gets a small nudge.
+      let score = km == null ? 999 : km;
+      if (vibeLabel && f.vibe && f.vibe.toLowerCase() === vibeLabel.toLowerCase()) score -= 1.5;
+      if (toStop.region && f.region === toStop.region) score -= 1;
+      return { f, score };
+    }).sort((x, y) => x.score - y.score);
+    return scored[0].f;
+  }
+
+  // Fills leftover time with free things near the paid stops, so a short
+  // or low-budget evening doesn't come back as a single lonely dinner.
+  function padWithFreeActivities(stops, minutesAvailable, vibeLabel) {
+    if (!FREE_ACTIVITIES.length) return stops;
+    const MIN_SLOT = 25;
+    const usedIds = new Set();
+    const out = [];
+    let remaining;
+
+    if (!stops.length) {
+      // Nothing paid fit the budget. Build a free plan rather than returning
+      // nothing — a free evening is a real answer, not a failure state.
+      remaining = minutesAvailable;
+      const seed = FREE_ACTIVITIES.find(f => (f.vibe || '').toLowerCase() === (vibeLabel || '').toLowerCase())
+                || FREE_ACTIVITIES[0];
+      out.push(seed); usedIds.add(seed.id); remaining -= seed.dur;
+    } else {
+      remaining = minutesAvailable - stops.reduce((m, s) => m + s.dur, 0);
+      for (const s of stops) {
+        out.push(s);
+        if (remaining < MIN_SLOT) continue;
+        const near = nearestFreeActivity(s, usedIds, vibeLabel);
+        if (near && near.dur <= remaining) {
+          out.push(near); usedIds.add(near.id); remaining -= near.dur;
+        }
+      }
+    }
+    // Still time going spare — keep adding near the last stop.
+    let guard = 0;
+    while (remaining >= MIN_SLOT && guard++ < 6) {
+      const near = nearestFreeActivity(out[out.length - 1], usedIds, vibeLabel);
+      if (!near || near.dur > remaining) break;
+      out.push(near); usedIds.add(near.id); remaining -= near.dur;
+    }
+    return out;
+  }
 
   // ============================================================
   // SAVED DEALS (shortlist) — persisted per-user in Supabase
@@ -469,7 +583,19 @@
     document.getElementById('res-date-line').textContent =
       dateStr + ' • ' + fmtTime(time) + ' • ' + dur + ' hours';
 
-    const stops = pickItineraryStops(curVibe, budget);
+    const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[curVibe] || 'Romantic';
+    const paidStops = pickItineraryStops(curVibe, budget);
+    const stops = padWithFreeActivities(paidStops, dur * 60, vibeLabel);
+
+    // If nothing paid fits, say so plainly and name the real cheapest price
+    // rather than quietly handing back a thin or over-budget plan.
+    let budgetNote = '';
+    if (paidStops.length === 0) {
+      const cheapest = cheapestDeal();
+      budgetNote = cheapest
+        ? `<div class="travel-warn">No paid deal currently fits $${budget}. The cheapest we have is <strong>${escHtmlApp(cheapest.name)}</strong> at $${cheapest.price}. Here's a free plan instead — raise your budget to mix in deals.</div>`
+        : `<div class="travel-warn">No deals available to plan with yet.</div>`;
+    }
 
     if (stops.length === 0) {
       document.getElementById('timeline').innerHTML = `
@@ -513,8 +639,8 @@
             </div>
             <div class="tl-price-col">
               <div>
-                <div class="tl-price">${s.price === 0 ? 'Free' : '$' + s.price}</div>
-                <div class="tl-price-sub">per person</div>
+                <div class="tl-price">${s.discountLabel ? escHtmlApp(s.discountLabel) : (s.price === 0 ? 'Free' : '$' + s.price)}</div>
+                <div class="tl-price-sub">${s.isFree ? 'no ticket needed' : (s.discountLabel ? 'at the door' : 'per person')}</div>
               </div>
               <div class="tl-actions">
                 <button class="tl-act-btn"        onclick="replaceStop(${i})">Replace</button>
@@ -527,9 +653,26 @@
       cursor = endMins;
     });
 
-    document.getElementById('timeline').innerHTML = tlHTML +
+    // Real straight-line distances between consecutive stops, from stored
+    // coordinates. Flag anything that's a genuine trek across the island.
+    const hops = [];
+    for (let i = 1; i < stops.length; i++) {
+      const km = haversineKm(stops[i - 1], stops[i]);
+      if (km != null) hops.push({ from: stops[i-1].name, to: stops[i].name, km });
+    }
+    const worst = hops.slice().sort((a, b) => b.km - a.km)[0];
+    const regions = [...new Set(stops.map(s => s.region).filter(Boolean))];
+
+    let travelNote = '';
+    if (worst && worst.km >= 8) {
+      travelNote = `<div class="travel-warn">⚠ Long hop: <strong>${escHtmlApp(worst.from)}</strong> to <strong>${escHtmlApp(worst.to)}</strong> is about ${worst.km.toFixed(1)} km apart${regions.length > 1 ? ` (${escHtmlApp(regions.join(' → '))})` : ''}. Budget extra travel time, or swap one out for something closer.</div>`;
+    } else if (worst) {
+      travelNote = `<div class="travel-ok">📍 All stops within ${worst.km.toFixed(1)} km of each other${regions.length === 1 ? ` — all in the ${escHtmlApp(regions[0])} region` : ''}.</div>`;
+    }
+
+    document.getElementById('timeline').innerHTML = budgetNote + tlHTML + travelNote +
       `<div style="font-size:12px;color:var(--muted);margin-top:12px;padding-left:4px">
-        ⏱ Times are estimated (60 min/stop) — travel time between stops isn't calculated yet, so double-check locations before you go.
+        ⏱ Stop times are estimates (60 min per deal). Distances are straight-line, not walking or MRT time — check the route before you go.
       </div>`;
 
     const totalMins = cursor - timeToMins(time);
