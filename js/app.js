@@ -989,10 +989,6 @@
         <div class="deal-body">
           <div class="deal-name">${escHtmlApp(d.name)}</div>
           <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
-          <div class="deal-meta-row">
-            ${d.openingHours ? `<span class="deal-chip">🕐 ${escHtmlApp(d.openingHours)}</span>` : ''}
-            ${d.endDate ? `<span class="deal-chip${isEndingSoon(d.endDate) ? ' urgent' : ''}">⏳ Ends ${escHtmlApp(prettyDate(d.endDate))}</span>` : '<span class="deal-chip">♾ Ongoing</span>'}
-          </div>
           <div class="deal-footer">
             <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : `${money(d.price)}<span>${priceUnitLabel(d).startsWith('/') ? '' : ' '}${priceUnitLabel(d)}</span>`)}${d.originalPrice ? ` <span class="deal-price-was">${money(d.originalPrice)}</span>` : ''}</div>
             <button class="deal-cta" onclick="event.stopPropagation();go('planner')">Add to plan</button>
