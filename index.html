@@ -28,6 +28,7 @@
       <button class="nav-link"        data-page="swipe"   onclick="go('swipe')">Swipe</button>
       <button class="nav-link"        data-page="planner" onclick="go('planner')">Plan a Date</button>
       <button class="nav-link"        data-page="saved"   onclick="go('saved')">Saved</button>
+      <button class="nav-link"        data-page="howitworks" onclick="go('howitworks')">How it works</button>
       <button class="nav-link"        data-page="contact" onclick="go('contact')">Contact</button>
     </div>
     <div class="nav-right">
@@ -47,6 +48,7 @@
     <button class="nav-link"        data-page="swipe"   onclick="go('swipe');closeMobileMenu()">Swipe</button>
     <button class="nav-link"        data-page="planner" onclick="go('planner');closeMobileMenu()">Plan a Date</button>
     <button class="nav-link"        data-page="saved"   onclick="go('saved');closeMobileMenu()">Saved</button>
+    <button class="nav-link"        data-page="howitworks" onclick="go('howitworks');closeMobileMenu()">How it works</button>
     <button class="nav-link"        data-page="contact" onclick="go('contact');closeMobileMenu()">Contact</button>
     <div class="nav-mobile-auth" id="nav-auth-area-mobile">
       <button class="btn-ghost" onclick="go('login');closeMobileMenu()">Sign in</button>
@@ -197,10 +199,14 @@
               <option value="6">All night (6h)</option>
             </select>
           </div>
-          <div class="form-group"><label class="form-label">Location</label>
+          <div class="form-group"><label class="form-label">Area</label>
             <select id="p-loc">
-              <option>Singapore</option><option>Bangkok</option>
-              <option>Kuala Lumpur</option><option>Tokyo</option><option>London</option>
+              <option value="any" selected>Anywhere in Singapore</option>
+              <option value="Central">Central</option>
+              <option value="East">East</option>
+              <option value="West">West</option>
+              <option value="North">North</option>
+              <option value="North-East">North-East</option>
             </select>
           </div>
         </div>
@@ -332,6 +338,51 @@
       <div class="swipe-actions">
         <button class="swipe-btn swipe-btn-pass" onclick="swipeButton('left')" title="Pass" aria-label="Pass">✕</button>
         <button class="swipe-btn swipe-btn-like" onclick="swipeButton('right')" title="Shortlist" aria-label="Shortlist">♡</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div id="page-howitworks" class="page">
+    <div class="hiw-wrap">
+      <div class="hiw-head">
+        <h1>How Datify works</h1>
+        <p>Datify collects real, currently-running date deals in Singapore and helps you build an evening around them. Here's exactly what that means — including the bits we haven't built yet.</p>
+      </div>
+
+      <div class="hiw-block">
+        <h2>Where the <span>deals</span> come from</h2>
+        <p>Two places. Some are <strong>curated</strong> — we find them on public listings, check they're still running, and record the real price, the outlet address and the expiry date. Others come straight from <strong>partner merchants</strong> who list with us directly.</p>
+        <p>Every curated deal links back to where it was published so you can verify it yourself, and we keep the fine print in. If a deal needs a particular credit card or only runs on weekday lunches, that's written into the description — not buried.</p>
+      </div>
+
+      <div class="hiw-block">
+        <h2>Find something you <span>like</span></h2>
+        <p><strong>Explore</strong> is the full list, filterable by category and price. <strong>Swipe</strong> is the same deals one card at a time — right to shortlist, left to pass.</p>
+        <p>You don't need an account to shortlist. Tap the heart and it's saved to your browser straight away. Make an account later and everything you saved comes with you.</p>
+      </div>
+
+      <div class="hiw-block">
+        <h2>Build the <span>date</span></h2>
+        <p>Tell the planner your budget, how long you've got, the area you want to be in and the kind of night you're after. It picks deals that genuinely fit — it won't hand you a $25 dinner on a $15 budget, or a four-hour plan when you said three.</p>
+        <p>If your budget won't stretch, it says so and names the cheapest thing we actually have, then builds you a free evening instead — a walk along the Marina Bay waterfront, the Botanic Gardens, Fort Canning. Those are real places, and they're genuinely free.</p>
+      </div>
+
+      <div class="hiw-block">
+        <h2>What we <span>don't</span> do yet</h2>
+        <p>We show the straight-line distance between stops, not travel time. A 7km hop might be twenty minutes or fifty depending on the MRT, so check the route before you commit.</p>
+        <p>Stop lengths are a flat estimate of an hour each — we don't yet know how long a given deal actually takes. And most photos on curated deals are stock images for illustration, not pictures of that venue. We say so on every deal page.</p>
+        <div class="hiw-note">We'd rather tell you what's an estimate than dress a guess up as a fact.</div>
+      </div>
+
+      <div class="hiw-block">
+        <h2>If you run a <span>business</span></h2>
+        <p>Merchants can list their own deals. You get a dashboard, a Seller ID and control over your listings. Every deal — new or edited — goes through a quick review before it appears publicly, so nothing goes live unchecked.</p>
+      </div>
+
+      <div class="hiw-cta">
+        <button class="btn-hero-primary" onclick="go('explore')">Browse deals</button>
+        <button class="btn-hero-secondary" onclick="go('contact')">Partner with us →</button>
       </div>
     </div>
   </div>

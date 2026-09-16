@@ -19,9 +19,19 @@
   // ============================================================
   // ✅ STEP 2 — Auth state: update nav when user signs in/out
   // ============================================================
+  // Tracks whether anyone is signed in, so the UI can tell a guest that
+  // their shortlist is device-only without re-querying auth every render.
+  let CURRENT_USER = null;
+
   db.auth.onAuthStateChange((event, session) => {
-    updateNavForAuth(session?.user ?? null);
-    loadSavedDeals().then(refreshSaveButtons);
+    CURRENT_USER = session?.user ?? null;
+    updateNavForAuth(CURRENT_USER);
+    loadSavedDeals().then(() => {
+      refreshSaveButtons();
+      // If they're sitting on Saved when they sign in, redraw so the
+      // "device only" banner disappears and the merged list shows.
+      if (document.getElementById('page-saved')?.classList.contains('active')) buildSavedDeals();
+    });
   });
 
   function updateNavForAuth(user) {
@@ -333,6 +343,10 @@
         originalPrice: r.original_price != null ? Number(r.original_price) : null,
         sourceUrl: r.source_url || null,
         imageIsStock: !!r.image_is_stock,
+        // Not every price is per-person: a set menu for two is a total,
+        // flat izakaya pricing is per dish, a simulator is a minimum spend.
+        // Labelling all of them "pp" overstated what people actually pay.
+        priceUnit: r.price_unit || 'per person',
         location: r.location || 'Singapore',
         tags: [r.vibe].filter(Boolean),
         desc: r.description || '',
@@ -372,13 +386,34 @@
     bar.style.display = '';
   }
 
+  // Every money amount on the site goes through this. Adding prices like
+  // 25 + 3.90 + 10 + 19.90 in binary floating point gives 58.80000000000001,
+  // which was being printed raw ("Budget left $1.2000000000000028").
+  // Always format money at the point of display, never trust the raw number.
+  function money(n) {
+    return '$' + (Number(n) || 0).toFixed(2);
+  }
+
+  // What the price is actually FOR. Shown under or beside every amount.
+  function priceUnitLabel(d) {
+    if (d.isFree)        return 'no ticket needed';
+    if (d.discountLabel) return 'at the door';
+    if (d.price === 0)   return '';
+    switch (d.priceUnit) {
+      case 'total':     return 'for the table';
+      case 'per item':  return 'per dish';
+      case 'min spend': return 'min. spend';
+      default:          return 'per person';
+    }
+  }
+
   // Single source of truth for how a deal's price is shown. A deal is
   // either fixed-price, or a discount offer with no computable price —
   // never "Free" unless it genuinely costs nothing.
   function priceLabel(d) {
     if (d.discountLabel) return escHtmlApp(d.discountLabel);
     if (d.price === 0)   return 'Free';
-    return '$' + d.price;
+    return money(d.price);
   }
 
   function hasFixedPrice(d) {
@@ -388,22 +423,44 @@
   function renderCategoryChips() {
     const el = document.getElementById('category-chips');
     if (!el) return;
+    // Only show categories that actually contain a visible deal. A filter
+    // that always returns "no deals match" is broken by definition — and it
+    // was leaking supplier test categories (e.g. "bang") onto the live site.
+    const withDeals = new Set(DEALS.map(d => d.type));
     const seen = new Map();
-    CATEGORIES.forEach(c => seen.set(slugify(c.name), c.name));
+    CATEGORIES.forEach(c => {
+      const slug = slugify(c.name);
+      if (withDeals.has(slug)) seen.set(slug, c.name);
+    });
     el.innerHTML = Array.from(seen.entries()).map(([slug, name]) =>
       `<button class="filter-chip filter-chip-cat" onclick="filterDeals('${slug}',this)">${escHtmlApp(name)}</button>`
     ).join('');
   }
 
-  // Picks up to 4 real deals matching the chosen vibe, staying near
-  // budget where possible. Falls back to any deals if none match the
-  // vibe yet (early on, before suppliers have tagged much).
-  function pickItineraryStops(vibeKey, budget) {
+  // Picks real deals matching the chosen vibe that fit BOTH the budget and
+  // the time the user actually has, in the area they picked.
+  //
+  // minutesAvailable is not optional cosmetics: without it the picker only
+  // capped on budget and stop count, so asking for a 3-hour date reliably
+  // produced a 4-hour itinerary (4 stops x 60 min) that ran an hour past
+  // what you said you had.
+  //
+  // areaFilter is a Singapore region ('Central', 'East', ...) or 'any'. The
+  // old Location dropdown offered Bangkok/Tokyo/London and filtered nothing
+  // at all, on a site where every deal is in Singapore.
+  function pickItineraryStops(vibeKey, budget, minutesAvailable, areaFilter) {
     const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[vibeKey] || 'Romantic';
     // Discount-type deals ("20% off") have no computable price, so including
     // them would silently understate the itinerary total. Keep them out of
     // auto-generated plans rather than costing them at $0.
-    const costable = DEALS.filter(hasFixedPrice);
+    let costable = DEALS.filter(hasFixedPrice);
+
+    // Narrow to the chosen area, but never hand back an empty plan just
+    // because that region is thin — fall back to the whole island.
+    if (areaFilter && areaFilter !== 'any') {
+      const inArea = costable.filter(d => d.region === areaFilter);
+      if (inArea.length) costable = inArea;
+    }
     if (!costable.length) return [];
 
     // Lower score = picked sooner. Three fixes over the first version:
@@ -423,21 +480,26 @@
     const sorted = costable.slice().sort((a, b) => score(a) - score(b));
 
     const MAX_STOPS = 4, MAX_PER_CAT = 2;
+    // Leave a little room so a paid plan doesn't consume the entire evening
+    // to the last minute — and so there's space for a free stop afterwards.
+    const timeBudget = Math.max(0, (minutesAvailable || 999) - 15);
     const chosen = [];
     const catCount = new Map();
-    let total = 0;
+    let total = 0, minutes = 0;
 
     // Pass 1 keeps variety (one per category); pass 2 allows a second from a
-    // category if there's still room and budget left.
+    // category if there's still room, budget AND time left.
     for (const maxPerCat of [1, MAX_PER_CAT]) {
       for (const d of sorted) {
         if (chosen.length >= MAX_STOPS) break;
         if (chosen.includes(d)) continue;
         if ((catCount.get(d.type) || 0) >= maxPerCat) continue;
         if (total + d.price > budget) continue;
+        if (minutes + d.dur > timeBudget) continue;
         chosen.push(d);
         catCount.set(d.type, (catCount.get(d.type) || 0) + 1);
         total += d.price;
+        minutes += d.dur;
       }
     }
     return chosen;
@@ -530,12 +592,47 @@
   }
 
   // ============================================================
-  // SAVED DEALS (shortlist) — persisted per-user in Supabase
+  // SAVED DEALS (shortlist)
+  //
+  // Signed in  -> rows in Supabase (saved_deals).
+  // Signed out -> ids in this browser only, under GUEST_KEY.
+  //
+  // Guests can shortlist freely and are asked to sign up only once they've
+  // built something worth keeping. Previously the heart silently threw you
+  // at the login page, which lost the deal AND the visitor.
   // ============================================================
+  const GUEST_KEY = 'datify-guest-shortlist';
+
+  function getGuestShortlist() {
+    try { return JSON.parse(localStorage.getItem(GUEST_KEY) || '[]'); }
+    catch (e) { return []; }   // private mode / blocked storage
+  }
+  function setGuestShortlist(ids) {
+    try { localStorage.setItem(GUEST_KEY, JSON.stringify(ids)); } catch (e) {}
+  }
+
+  // On sign-up/sign-in, carry anything shortlisted as a guest into the real
+  // account so the work isn't lost. unique(user_id, deal_id) makes this safe
+  // to run more than once.
+  async function mergeGuestShortlist(userId) {
+    const ids = getGuestShortlist();
+    if (!ids.length) return;
+    try {
+      const rows = ids.map(deal_id => ({ user_id: userId, deal_id }));
+      const { error } = await db.from('saved_deals')
+        .upsert(rows, { onConflict: 'user_id,deal_id', ignoreDuplicates: true });
+      if (error) throw error;
+      setGuestShortlist([]);
+    } catch (err) {
+      console.error('Could not merge guest shortlist:', err);
+    }
+  }
+
   async function loadSavedDeals() {
     try {
       const { data: { session } } = await db.auth.getSession();
-      if (!session) { SAVED_DEAL_IDS = new Set(); return; }
+      if (!session) { SAVED_DEAL_IDS = new Set(getGuestShortlist()); return; }
+      await mergeGuestShortlist(session.user.id);
       const { data, error } = await db.from('saved_deals').select('deal_id').eq('user_id', session.user.id);
       if (error) throw error;
       SAVED_DEAL_IDS = new Set((data || []).map(r => r.deal_id));
@@ -553,10 +650,22 @@
       console.error('Session check failed:', err);
       return;
     }
+    // Not signed in: shortlist locally instead of bouncing them to login.
     if (!session) {
-      go('login');
+      const ids = getGuestShortlist();
+      const at = ids.indexOf(dealId);
+      if (at >= 0) { ids.splice(at, 1); SAVED_DEAL_IDS.delete(dealId); }
+      else         { ids.push(dealId);  SAVED_DEAL_IDS.add(dealId); }
+      setGuestShortlist(ids);
+      refreshSaveButtons();
+      if (document.getElementById('page-saved')?.classList.contains('active')) buildSavedDeals();
+      // Nudge once they've saved enough to care about losing it — but don't
+      // nag on every swipe. Only at 2, 5 and 10.
+      if ([2, 5, 10].includes(ids.length)) showGuestSavePrompt(ids.length);
+      else if (ids.length === 1) showToast('Saved to this device. Sign up later to keep it.');
       return;
     }
+
     const isSaved = SAVED_DEAL_IDS.has(dealId);
     try {
       if (isSaved) {
@@ -574,6 +683,38 @@
       return;
     }
     refreshSaveButtons();
+  }
+
+  // Small transient message, bottom of screen. Used instead of silently
+  // doing something (or silently navigating somewhere).
+  let toastTimer = null;
+  function showToast(msg, actionLabel, actionFn) {
+    let el = document.getElementById('datify-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'datify-toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `<span>${escHtmlApp(msg)}</span>`;
+    if (actionLabel) {
+      const b = document.createElement('button');
+      b.className = 'toast-action';
+      b.textContent = actionLabel;
+      b.onclick = () => { hideToast(); (actionFn || (() => {}))(); };
+      el.appendChild(b);
+    }
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, actionLabel ? 8000 : 3500);
+  }
+  function hideToast() {
+    const el = document.getElementById('datify-toast');
+    if (el) el.classList.remove('show');
+  }
+
+  function showGuestSavePrompt(count) {
+    showToast(`${count} deals shortlisted on this device.`, 'Create an account to keep them', () => go('signup'));
   }
 
   function refreshSaveButtons() {
@@ -658,7 +799,9 @@
     const time   = document.getElementById('p-time')?.value || '18:30';
     const dur    = parseInt(document.getElementById('p-dur')?.value) || 3;
     const dateVal= document.getElementById('p-date')?.value;
-    const loc    = document.getElementById('p-loc')?.value || 'Singapore';
+    const loc    = document.getElementById('p-loc')?.value || 'any';
+    // 'any' is the filter value; show something human in the results pill.
+    const locLabel = loc === 'any' ? 'Anywhere in Singapore' : loc + ', Singapore';
     const dateStr= dateVal
       ? new Date(dateVal + 'T12:00').toLocaleDateString('en-US', {weekday:'long',day:'numeric',month:'long'})
       : formatDate(new Date());
@@ -667,7 +810,7 @@
       dateStr + ' • ' + fmtTime(time) + ' • ' + dur + ' hours';
 
     const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[curVibe] || 'Romantic';
-    const paidStops = pickItineraryStops(curVibe, budget);
+    const paidStops = pickItineraryStops(curVibe, budget, dur * 60, loc);
     const stops = padWithFreeActivities(paidStops, dur * 60, vibeLabel);
 
     // If nothing paid fits, say so plainly and name the real cheapest price
@@ -676,7 +819,7 @@
     if (paidStops.length === 0) {
       const cheapest = cheapestDeal();
       budgetNote = cheapest
-        ? `<div class="travel-warn">No paid deal currently fits $${budget}. The cheapest we have is <strong>${escHtmlApp(cheapest.name)}</strong> at $${cheapest.price}. Here's a free plan instead — raise your budget to mix in deals.</div>`
+        ? `<div class="travel-warn">No paid deal currently fits ${money(budget)}. The cheapest we have is <strong>${escHtmlApp(cheapest.name)}</strong> at ${money(cheapest.price)}. Here's a free plan instead — raise your budget to mix in deals.</div>`
         : `<div class="travel-warn">No deals available to plan with yet.</div>`;
     }
 
@@ -722,8 +865,8 @@
             </div>
             <div class="tl-price-col">
               <div>
-                <div class="tl-price">${s.discountLabel ? escHtmlApp(s.discountLabel) : (s.price === 0 ? 'Free' : '$' + s.price)}</div>
-                <div class="tl-price-sub">${s.isFree ? 'no ticket needed' : (s.discountLabel ? 'at the door' : 'per person')}</div>
+                <div class="tl-price">${s.discountLabel ? escHtmlApp(s.discountLabel) : (s.price === 0 ? 'Free' : money(s.price))}</div>
+                <div class="tl-price-sub">${escHtmlApp(priceUnitLabel(s))}</div>
               </div>
               <div class="tl-actions">
                 <button class="tl-act-btn"        onclick="replaceStop(${i})">Replace</button>
@@ -761,14 +904,14 @@
     const totalMins = cursor - timeToMins(time);
     document.getElementById('res-pills').innerHTML = `
       <div class="r-pill">📍 ${stops.length} stops</div>
-      <div class="r-pill">💰 $${total} total</div>
+      <div class="r-pill">💰 ${money(total)} total</div>
       <div class="r-pill">🕐 ${Math.floor(totalMins/60)}h ${totalMins%60 > 0 ? totalMins%60+'m' : ''}</div>
-      <div class="r-pill">📍 ${escHtmlApp(loc)}</div>`;
+      <div class="r-pill">📍 ${escHtmlApp(locLabel)}</div>`;
 
     document.getElementById('total-summary').innerHTML = `
-      <div class="ts-item"><div class="ts-label">Total cost</div><div class="ts-val pink">$${total}</div></div>
+      <div class="ts-item"><div class="ts-label">Total cost</div><div class="ts-val pink">${money(total)}</div></div>
       <div class="ts-divider"></div>
-      <div class="ts-item"><div class="ts-label">Budget left</div><div class="ts-val">$${Math.max(0, budget - total)}</div></div>
+      <div class="ts-item"><div class="ts-label">Budget left</div><div class="ts-val">${money(Math.max(0, budget - total))}</div></div>
       <div class="ts-divider"></div>
       <div class="ts-item"><div class="ts-label">Duration</div><div class="ts-val">${Math.floor(totalMins/60)}h ${totalMins%60 > 0 ? totalMins%60+'m' : ''}</div></div>
       <div class="ts-divider"></div>
@@ -819,7 +962,7 @@
           <div class="deal-name">${escHtmlApp(d.name)}</div>
           <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
           <div class="deal-footer">
-            <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : '$' + d.price + ' <span>pp</span>')}${d.originalPrice ? ` <span class="deal-price-was">$${d.originalPrice}</span>` : ''}</div>
+            <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : money(d.price) + ` <span>${priceUnitLabel(d)}</span>`)}${d.originalPrice ? ` <span class="deal-price-was">${money(d.originalPrice)}</span>` : ''}</div>
             <button class="deal-cta" onclick="event.stopPropagation();go('planner')">Add to plan</button>
           </div>
         </div>
@@ -887,7 +1030,7 @@
       </div>
       <div class="detail-sidebar">
         <div class="sidebar-price">${priceLabel(d)}</div>
-        <div class="sidebar-price-sub">${d.discountLabel ? '' : (d.price > 0 ? 'per person' : '')}${d.originalPrice ? ` · usually $${d.originalPrice}` : ''}</div>
+        <div class="sidebar-price-sub">${escHtmlApp(priceUnitLabel(d))}${d.originalPrice ? ` · usually ${money(d.originalPrice)}` : ''}</div>
         ${d.endDate ? `<div class="sidebar-expiry">Ends ${escHtmlApp(d.endDate)}</div>` : ''}
         <button class="sidebar-btn primary" onclick="go('planner')">Add to plan</button>
         <button class="sidebar-btn secondary" id="save-deal-btn" data-deal-id="${d.id}" onclick="toggleSaveDeal('${d.id}', this)">${SAVED_DEAL_IDS.has(d.id) ? 'Saved ✓' : 'Save deal ♡'}</button>
@@ -903,12 +1046,23 @@
   function buildSavedDeals() {
     const el = document.getElementById('saved-deals-panel');
     const saved = DEALS.filter(d => SAVED_DEAL_IDS.has(d.id));
+
+    // Guests get a standing reminder that this list lives only in this
+    // browser — honest, and it's the natural moment to ask them to sign up.
+    const isGuest = !CURRENT_USER;
+    const guestBanner = (isGuest && saved.length)
+      ? `<div class="guest-banner">
+           <div><strong>Saved on this device only.</strong> Create a free account and these ${saved.length} deal${saved.length === 1 ? '' : 's'} follow you to your phone.</div>
+           <button class="btn-pink" onclick="go('signup')">Create account</button>
+         </div>`
+      : '';
+
     el.innerHTML = saved.length
-      ? `<div class="deals-grid">${saved.map(d => dealCardHTML(d)).join('')}</div>`
+      ? guestBanner + `<div class="deals-grid">${saved.map(d => dealCardHTML(d)).join('')}</div>`
       : `<div class="empty-state">
           <div class="es-icon">🤍</div>
           <h3>No shortlisted deals yet</h3>
-          <p>Heart a deal on Explore, or try Swipe to build your shortlist.</p>
+          <p>Heart a deal on Explore, or try Swipe to build your shortlist. No account needed.</p>
           <button class="btn-pink" onclick="go('swipe')">Try Swipe →</button>
         </div>`;
   }
@@ -976,7 +1130,7 @@
           <div class="swipe-card-info">
             <div class="swipe-card-name">${escHtmlApp(d.name)}</div>
             <div class="swipe-card-loc">📍 ${escHtmlApp(d.location)}</div>
-            <div class="swipe-card-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? 'Free' : '$' + d.price + ' pp')}</div>
+            <div class="swipe-card-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? 'Free' : money(d.price) + ' ' + priceUnitLabel(d))}</div>
           </div>
         </div>`;
     }).join('');

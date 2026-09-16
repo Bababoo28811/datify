@@ -395,6 +395,38 @@
     .empty-state h3{font-size:19px;font-weight:700;margin-bottom:8px}
     .empty-state p{font-size:14px;color:var(--muted);margin-bottom:20px}
 
+    /* TOAST — transient feedback so nothing happens silently */
+    .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,120%);
+           background:var(--text);color:var(--bg);padding:13px 18px;border-radius:14px;
+           box-shadow:0 8px 30px rgba(0,0,0,0.28);display:flex;align-items:center;gap:14px;
+           font-size:14px;font-weight:600;z-index:9998;max-width:min(92vw,520px);
+           transition:transform 0.28s cubic-bezier(.2,.8,.2,1),opacity 0.28s;opacity:0}
+    .toast.show{transform:translate(-50%,0);opacity:1}
+    .toast-action{background:var(--pink);color:var(--on-accent);border:none;border-radius:10px;
+                  padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;
+                  font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0}
+    .toast-action:hover{background:var(--pink-dark)}
+
+    /* Guest shortlist banner on the Saved page */
+    .guest-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;
+                  flex-wrap:wrap;background:var(--pink-light);border:1px solid var(--border);
+                  border-radius:var(--r-sm);padding:14px 18px;margin-bottom:20px;font-size:14px}
+    .guest-banner strong{color:var(--pink)}
+
+    /* HOW IT WORKS */
+    .hiw-wrap{max-width:780px;margin:0 auto;padding:44px 24px 72px}
+    .hiw-head h1{font-size:30px;font-weight:800;letter-spacing:-0.7px;margin-bottom:8px}
+    .hiw-head p{color:var(--muted);font-size:15px;margin-bottom:36px;line-height:1.65}
+    .hiw-block{border-top:1px solid var(--border);padding:26px 0}
+    .hiw-block h2{font-size:18px;font-weight:800;margin-bottom:10px;letter-spacing:-0.3px}
+    .hiw-block h2 span{color:var(--pink)}
+    .hiw-block p{font-size:14.5px;line-height:1.7;color:var(--muted);margin-bottom:10px}
+    .hiw-block p strong{color:var(--text);font-weight:700}
+    .hiw-block:last-of-type{border-bottom:1px solid var(--border)}
+    .hiw-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+    .hiw-note{background:var(--pink-xlight);border:1px solid var(--border);border-radius:var(--r-sm);
+              padding:14px 18px;font-size:13.5px;line-height:1.6;color:var(--muted);margin-top:10px}
+
     @media(max-width:650px){
       .nav{padding:0 16px}
       .hero{min-height:min(76vh,520px)}
