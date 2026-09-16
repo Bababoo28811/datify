@@ -7,7 +7,7 @@
       --shadow:0 4px 24px rgba(255,107,129,0.10);
       --shadow-sm:0 2px 12px rgba(255,107,129,0.07);
       --r:20px;--r-sm:12px;--r-lg:28px;
-      --nav-bg:rgba(255,248,246,0.97);
+      --nav-bg:rgba(255,248,246,0.97);--on-accent:#FFFFFF;
     }
     @media (prefers-color-scheme: dark){
       :root:not([data-theme="light"]){
@@ -97,7 +97,7 @@
     .img-placeholder p{font-size:13px;font-weight:600}
     .img-placeholder small{font-size:11px}
     .img-remove-btn{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;
-                    background:rgba(0,0,0,0.45);border:none;cursor:pointer;color:var(--white);
+                    background:rgba(0,0,0,0.45);border:none;cursor:pointer;color:var(--on-accent);
                     font-size:15px;display:none;align-items:center;justify-content:center;z-index:2}
     .img-upload-area.has-img .img-remove-btn{display:flex}
     .img-upload-area.has-img .img-placeholder{display:none}
@@ -123,12 +123,12 @@
 
     /* ── BUTTONS ── */
     .btn-primary{width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:700;
-                 cursor:pointer;border:none;background:var(--pink);color:var(--white);
+                 cursor:pointer;border:none;background:var(--pink);color:var(--on-accent);
                  font-family:'Inter',sans-serif;transition:all 0.18s;margin-top:4px}
     .btn-primary:hover{background:var(--pink-dark)}
     .btn-primary:disabled{background:#ccc;cursor:not-allowed}
     .btn-sm{padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;
-            border:none;background:var(--pink);color:var(--white);font-family:'Inter',sans-serif;
+            border:none;background:var(--pink);color:var(--on-accent);font-family:'Inter',sans-serif;
             transition:background 0.15s;white-space:nowrap}
     .btn-sm:hover{background:var(--pink-dark)}
     .btn-sm-outline{padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;
