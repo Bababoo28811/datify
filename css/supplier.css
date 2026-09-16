@@ -200,6 +200,17 @@
     .approval-rejected{background:#FEE2E2;color:#991B1B}
     .td-actions{display:flex;gap:6px}
 
+    @media(max-width:600px){
+      /* Nav was wider than a phone: drop the email/badge, tighten buttons */
+      .nav-right{gap:8px}
+      .nav-right .nav-user,.nav-right .nav-badge{display:none !important}
+      .nav-brand{font-size:18px}
+      .btn-back-site,.btn-logout{padding:7px 10px;font-size:12px;white-space:nowrap}
+      .nav-logo{gap:6px;flex-shrink:0}
+      .nav-logo-mark{width:30px;height:30px}
+      .nav-logo-mark svg{width:26px;height:26px}
+      .theme-toggle{flex-shrink:0}
+    }
     @media(max-width:900px){
       .dash-grid{grid-template-columns:1fr}
       .nav{padding:0 16px}
