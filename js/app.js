@@ -113,7 +113,16 @@
         return;
       }
 
-      okEl.textContent   = '✓ Account created! Check your email to confirm.';
+      // If confirmation is required the session will be null here — say so
+      // clearly (including the spam-folder hint) instead of implying they're
+      // already signed in and bouncing them to a page that needs a login.
+      if (!data.session) {
+        okEl.innerHTML = '✓ Account created. We\'ve emailed you a confirmation link — <strong>check your spam folder too</strong>, it often lands there. You\'ll need to click it before you can sign in.';
+        okEl.style.display = 'block';
+        return;
+      }
+
+      okEl.textContent   = '✓ Account created! Signing you in…';
       okEl.style.display = 'block';
 
       setTimeout(() => go('planner'), 1800);
@@ -180,11 +189,43 @@
       setTimeout(() => go('planner'), 1000);
 
     } catch (err) {
-      errEl.textContent   = err.message || 'Invalid email or password.';
+      // "Email not confirmed" is the single most common way people get stuck:
+      // the account exists but the confirmation mail never arrived (Supabase's
+      // built-in mailer is rate-limited and often lands in spam). Give them a
+      // way out instead of a dead-end error.
+      const msg = (err.message || '').toLowerCase();
+      if (msg.includes('not confirmed') || msg.includes('email not confirmed')) {
+        errEl.innerHTML = 'Your email address hasn\'t been confirmed yet. Check your inbox <strong>and your spam folder</strong>, or <button type="button" class="link-btn" onclick="resendConfirmation()">send the confirmation email again</button>.';
+      } else {
+        errEl.textContent = err.message || 'Invalid email or password.';
+      }
       errEl.style.display = 'block';
     } finally {
       btn.disabled    = false;
       btn.textContent = 'Sign in';
+    }
+  }
+
+  // Re-sends the signup confirmation email. Supabase rate-limits this, so the
+  // error is surfaced plainly rather than swallowed.
+  async function resendConfirmation() {
+    const email = document.getElementById('login-email').value.trim();
+    const errEl = document.getElementById('login-error');
+    const okEl  = document.getElementById('login-success');
+    if (!email) {
+      errEl.textContent = 'Type your email address in the field above first.';
+      errEl.style.display = 'block';
+      return;
+    }
+    try {
+      const { error } = await db.auth.resend({ type: 'signup', email });
+      if (error) throw error;
+      errEl.style.display = 'none';
+      okEl.textContent   = '✓ Sent. Check your inbox and spam folder — it can take a minute.';
+      okEl.style.display = 'block';
+    } catch (e) {
+      errEl.textContent = e.message || 'Could not resend just now — wait a minute and try again.';
+      errEl.style.display = 'block';
     }
   }
 
