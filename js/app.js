@@ -4,6 +4,10 @@
 // ============================================================
   // PASSWORD STRENGTH — min 8 chars, upper, lower, and a symbol
   // ============================================================
+  // Founder/admin account — gets to reach /admin.html and the supplier
+  // dashboard without the supplier auto-redirect getting in the way.
+  const ADMIN_EMAIL = 'elisazhu.ys@gmail.com';
+
   const PASSWORD_RULE_TEXT = 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a symbol.';
   function isStrongPassword(pw) {
     return pw.length >= 8
@@ -142,6 +146,11 @@
   // This is invisible to regular users; it's just a DB read.
   // ============================================================
   async function isSupplierEmail(email) {
+    // The founder account is never auto-redirected to the supplier
+    // dashboard — otherwise being whitelisted (or admin) would hijack every
+    // login and make /admin.html awkward to reach. Admin can still open the
+    // supplier dashboard directly by URL.
+    if (email === ADMIN_EMAIL) return false;
     const { data, error } = await db
       .from('supplier_whitelist')
       .select('email')

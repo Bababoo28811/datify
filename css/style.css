@@ -40,7 +40,9 @@
     .nav-logo-mark{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
     .nav-logo-mark svg{width:32px;height:32px}
     .nav-brand{font-size:20px;font-weight:800;color:var(--pink);letter-spacing:-0.5px}
-    .nav-links{display:flex;gap:6px;align-items:center}
+    /* Navigation lives entirely in the hamburger menu now, at every width.
+       The inline link row is gone, so the nav bar stays clean. */
+    .nav-links{display:none}
     .nav-link{padding:8px 14px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);font-family:'Inter',sans-serif;transition:all 0.18s}
     .nav-link:hover{background:var(--pink-light);color:var(--pink)}
     .nav-link.active{color:var(--pink);background:var(--pink-light)}
@@ -70,7 +72,8 @@
                        border-radius:var(--r-sm);top:70px;padding:10px}
     }
     @media(max-width:800px){
-      .nav-links{display:none}
+      /* Sign in / Join free move into the menu on small screens so the bar
+         doesn't crowd. (.nav-links is hidden at all widths now.) */
       #nav-auth-area{display:none}
     }
     .btn-ghost{padding:8px 18px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text);font-family:'Inter',sans-serif;transition:all 0.18s}

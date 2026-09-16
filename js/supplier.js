@@ -1,6 +1,11 @@
 // supplier.js — Supplier Dashboard Logic
 // Depends on: supabase.js (db must be defined first)
 
+// The founder account can view this dashboard without being a whitelisted
+// supplier, so you can see exactly what suppliers see without adding
+// yourself to the whitelist (which would hijack your own logins).
+const SUPPLIER_ADMIN_EMAIL = 'elisazhu.ys@gmail.com';
+
 // ============================================================
 // AUTH GUARD — redirect if not logged in or not whitelisted
 // ============================================================
@@ -33,7 +38,9 @@ async function initSupplierDashboard() {
     return;
   }
 
-  if (whitelistError || !data) {
+  const isAdmin = session.user.email === SUPPLIER_ADMIN_EMAIL;
+
+  if ((whitelistError || !data) && !isAdmin) {
     // Valid Datify user but NOT a supplier — send them home
     window.location.href = 'index.html';
     return;
@@ -43,9 +50,15 @@ async function initSupplierDashboard() {
   const navEl = document.getElementById('nav-user-email');
   if (navEl) navEl.textContent = session.user.email;
   const sellerIdEl = document.getElementById('nav-seller-id');
-  if (sellerIdEl && data.seller_id) {
+  if (sellerIdEl && data && data.seller_id) {
     sellerIdEl.textContent = data.seller_id;
     sellerIdEl.style.display = '';
+  }
+  if (isAdmin && (!data || whitelistError)) {
+    // Make it obvious this is a preview, not a real supplier account —
+    // "My Deals" will be empty because no deals belong to this account.
+    const badge = document.querySelector('.nav-badge');
+    if (badge) badge.textContent = 'Supplier Dashboard (admin preview)';
   }
 
   // Load data — failures here shouldn't leave the page stuck on
