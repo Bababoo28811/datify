@@ -593,7 +593,7 @@
       if (inArea.length) paidPool = inArea;
     }
 
-    const MAX_PAID = 4, MAX_STOPS = 8, MIN_SLOT = 25, STEP = 15, MAX_FREE_HOP_KM = 8;
+    const MAX_PAID = 4, MAX_STOPS = 8, MIN_SLOT = 25, STEP = 15, MAX_FREE_HOP_KM = 5, MAX_HOP_MINS = 40;
     const out = [];
     const usedIds = new Set();
     const catCount = new Map();
@@ -605,8 +605,21 @@
     //     even if no restaurant matches the vibe, so that outranks vibe.
     //   - Each km from the previous stop costs a little, so the plan
     //     doesn't zig-zag across the island.
+    // Where the deals cluster. The first stop leans towards it so there's
+    // something nearby to do next (with no previous stop, distance is
+    // otherwise ignored and a plan can open somewhere isolated).
+    // With an area picked, the hub is that area's deals and free spots.
+    const areaOn = areaFilter && areaFilter !== 'any';
+    const freeForHub = areaOn ? FREE_ACTIVITIES.filter(f => f.region === areaFilter) : FREE_ACTIVITIES;
+    const located = [...paidPool, ...freeForHub].filter(x => x.lat != null);
+    const hub = located.length
+      ? { lat: located.reduce((t, x) => t + x.lat, 0) / located.length,
+          lng: located.reduce((t, x) => t + x.lng, 0) / located.length }
+      : null;
+
     const paidScore = d => {
       let sc = d.price / 1000;
+      if (!out.length && hub) sc += (haversineKm(hub, d) || 0) * 1.5;
       if (SAVED_DEAL_IDS.has(d.id)) sc -= 100;
       if (isMeal(d) && lastMealEnd == null) {
         const now = slotsAt(cursor);
@@ -619,15 +632,22 @@
       return sc;
     };
 
+    // When we'd get to a stop if we left the previous one now.
+    const arrival = d => cursor + estTravel(out[out.length - 1], d).minutes;
+
     const nextPaid = () => {
       if (paidCount >= MAX_PAID) return null;
       return paidPool
-        .filter(d => !usedIds.has(d.id)
-          && total + d.price <= budget
-          && cursor + d.dur <= endMins
-          && (catCount.get(d.type) || 0) < 2
-          && fitsAt(d, cursor)
-          && !(isMeal(d) && lastMealEnd != null && cursor - lastMealEnd < MEAL_GAP_MINS))
+        .filter(d => {
+          if (usedIds.has(d.id) || total + d.price > budget) return false;
+          // Don't send people across the island for one stop.
+          if (estTravel(out[out.length - 1], d).minutes > MAX_HOP_MINS) return false;
+          const at = arrival(d);
+          return at + d.dur <= endMins
+            && (catCount.get(d.type) || 0) < 2
+            && fitsAt(d, at)
+            && !(isMeal(d) && lastMealEnd != null && at - lastMealEnd < MEAL_GAP_MINS);
+        })
         .sort((a, b) => paidScore(a) - paidScore(b))[0] || null;
     };
 
@@ -638,20 +658,26 @@
       const prev2 = out[out.length - 2];
       if (prev && prev.isFree && prev2 && prev2.isFree) return null;
       const ok = f => {
-        if (usedIds.has(f.id) || cursor + f.dur > endMins || !fitsAt(f, cursor)) return false;
+        const at = prev ? arrival(f) : cursor;
+        if (usedIds.has(f.id) || at + f.dur > endMins || !fitsAt(f, at)) return false;
         // A "nearby" stroll shouldn't be a cross-island trip.
         const km = prev ? haversineKm(prev, f) : null;
         return km == null || km <= MAX_FREE_HOP_KM;
       };
       if (!prev) {
-        return FREE_ACTIVITIES.find(f => ok(f) && (f.vibe || '').toLowerCase() === vibeLabel.toLowerCase())
-            || FREE_ACTIVITIES.find(ok) || null;
+        // Opening stop: on-vibe first, then closest to where the deals are.
+        const onVibe = f => (f.vibe || '').toLowerCase() === vibeLabel.toLowerCase() ? 0 : 5;
+        const nearHub = f => hub ? (haversineKm(hub, f) || 0) : 0;
+        return FREE_ACTIVITIES.filter(ok)
+          .sort((a, b) => (onVibe(a) + nearHub(a)) - (onVibe(b) + nearHub(b)))[0] || null;
       }
       return nearestFreeActivity(prev, usedIds, vibeLabel, ok);
     };
 
     const place = stop => {
-      out.push({ ...stop, startAt: cursor });
+      const travel = estTravel(out[out.length - 1], stop);
+      cursor += travel.minutes;
+      out.push({ ...stop, startAt: cursor, travelBefore: travel });
       usedIds.add(stop.id);
       cursor += stop.dur;
       if (!stop.isFree) {
@@ -716,6 +742,18 @@
     const s = Math.sin(dLat/2)**2 +
               Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+  }
+
+  // Rough door-to-door minutes between two stops, used while building the
+  // plan (OneMap's real figure replaces it once the plan is on screen).
+  // Under ~800 m you walk; otherwise ~10 min of walking/waiting plus ~3 min
+  // per km, which matched OneMap closely on test routes (6.8 km -> 30 min).
+  function estTravel(a, b) {
+    if (!a || !b) return { minutes: 0, mode: 'none' };
+    const km = haversineKm(a, b);
+    if (km == null) return { minutes: 15, mode: 'pt' };
+    if (km <= 0.8) return { minutes: Math.max(1, Math.round(km * 1000 * 1.3 / 75)), mode: 'walk' };
+    return { minutes: Math.round(10 + km * 3), mode: 'pt' };
   }
 
   function nearestFreeActivity(toStop, usedIds, vibeLabel, extraFilter) {
@@ -996,6 +1034,9 @@
         ? `<img src="${escHtmlApp(s.image)}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`
         : s.emoji;
 
+      if (i > 0 && s.travelBefore && s.travelBefore.mode !== 'none') {
+        tlHTML += `<div class="travel-seg"><div class="travel-line"></div><div class="travel-pill" id="tlt-${i}">${travelLabel(s.travelBefore, true)}</div><div class="travel-line"></div></div>`;
+      }
       tlHTML += `
         <div class="tl-item">
           <div class="tl-node ${typeClass}">${s.emoji}</div>
@@ -1006,8 +1047,8 @@
               <div class="tl-name">${escHtmlApp(s.name)}</div>
               <div class="tl-loc">📍 ${escHtmlApp(s.location)}</div>
               <div class="tl-times">
-                <div class="tl-time-chip">▶ ${startStr}</div>
-                <div class="tl-time-chip">■ ${endStr} (est.)</div>
+                <div class="tl-time-chip" id="tls-${i}">▶ ${startStr}</div>
+                <div class="tl-time-chip" id="tle-${i}">■ ${endStr} (est.)</div>
               </div>
             </div>
             <div class="tl-price-col">
@@ -1026,27 +1067,15 @@
       cursor = endMins;
     });
 
-    // Real straight-line distances between consecutive stops, from stored
-    // coordinates. Flag anything that's a genuine trek across the island.
-    const hops = [];
-    for (let i = 1; i < stops.length; i++) {
-      const km = haversineKm(stops[i - 1], stops[i]);
-      if (km != null) hops.push({ from: stops[i-1].name, to: stops[i].name, km });
-    }
-    const worst = hops.slice().sort((a, b) => b.km - a.km)[0];
-    const regions = [...new Set(stops.map(s => s.region).filter(Boolean))];
-
-    let travelNote = '';
-    if (worst && worst.km >= 8) {
-      travelNote = `<div class="travel-warn">⚠ Long hop: <strong>${escHtmlApp(worst.from)}</strong> to <strong>${escHtmlApp(worst.to)}</strong> is about ${worst.km.toFixed(1)} km apart${regions.length > 1 ? ` (${escHtmlApp(regions.join(' → '))})` : ''}. Budget extra travel time, or swap one out for something closer.</div>`;
-    } else if (worst) {
-      travelNote = `<div class="travel-ok">📍 All stops within ${worst.km.toFixed(1)} km of each other${regions.length === 1 ? ` — all in the ${escHtmlApp(regions[0])} region` : ''}.</div>`;
-    }
+    // Travel between stops. Starts as our estimate; refineTravelTimes()
+    // swaps in OneMap's public-transport figures once they arrive.
+    const travelNote = `<div id="travel-note">${travelSummary(stops, false)}</div>`;
 
     document.getElementById('timeline').innerHTML = budgetNote + tlHTML + travelNote +
       `<div style="font-size:12px;color:var(--muted);margin-top:12px;padding-left:4px">
-        ⏱ Stop times are estimates (60 min per deal). Distances are straight-line, not walking or MRT time — check the route before you go.
+        ⏱ Stop times are estimates (60 min per deal). Travel times are for public transport or walking — check the route before you go.
       </div>`;
+    refineTravelTimes(stops, dateVal, time, timeToMins(time) + dur * 60);
 
     const totalMins = cursor - timeToMins(time);
     document.getElementById('res-pills').innerHTML = `
@@ -1068,6 +1097,88 @@
     const stopIds = new Set(stops.map(s => s.id));
     const extras  = DEALS.filter(d => !stopIds.has(d.id)).slice(0, 4);
     document.getElementById('res-extras').innerHTML = extras.map(d => dealCardHTML(d)).join('');
+  }
+
+  function travelLabel(t, estimated) {
+    const approx = estimated ? '~' : '';
+    return t.mode === 'walk'
+      ? `🚶 ${approx}${t.minutes} min walk`
+      : `🚇 ${approx}${t.minutes} min by MRT/bus`;
+  }
+
+  // One line under the plan about the longest trip between stops.
+  function travelSummary(stops, fromOneMap) {
+    const hops = stops.slice(1)
+      .map((s, i) => ({ from: stops[i].name, to: s.name, t: s.travelBefore }))
+      .filter(h => h.t && h.t.mode !== 'none');
+    if (!hops.length) return '';
+    const worst = hops.slice().sort((a, b) => b.t.minutes - a.t.minutes)[0];
+    const approx = fromOneMap ? '' : 'about ';
+    if (worst.t.minutes >= 35) {
+      return `<div class="travel-warn">⚠ Longest trip: <strong>${escHtmlApp(worst.from)}</strong> to <strong>${escHtmlApp(worst.to)}</strong> takes ${approx}${worst.t.minutes} min by MRT/bus. Swap one out for something closer if that's too far.</div>`;
+    }
+    const allWalk = hops.every(h => h.t.mode === 'walk');
+    return `<div class="travel-ok">📍 ${allWalk ? 'Everything is walkable' : 'Longest trip between stops is ' + approx + worst.t.minutes + ' min'}${allWalk ? ` — the furthest is ${approx}${worst.t.minutes} min on foot` : ' by MRT/bus'}.</div>`;
+  }
+
+  // Ask OneMap (via our travel-time function) for real public-transport
+  // times, then update the travel rows and push stop times back if needed.
+  // Failing quietly is fine: the estimates are already on screen.
+  let travelRequestId = 0;
+  async function refineTravelTimes(stops, dateVal, time, endMins) {
+    const legs = [];
+    const legIdx = [];
+    stops.forEach((s, i) => {
+      if (i === 0 || !s.travelBefore || s.travelBefore.mode === 'none') return;
+      const a = stops[i - 1];
+      if (a.lat == null || s.lat == null) return;
+      legs.push({ from: { lat: a.lat, lng: a.lng }, to: { lat: s.lat, lng: s.lng } });
+      legIdx.push(i);
+    });
+    if (!legs.length) return;
+    const myId = ++travelRequestId;
+    let result;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/travel-time`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON },
+        body: JSON.stringify({ legs, date: dateVal, time })
+      });
+      if (!res.ok) return;
+      result = await res.json();
+    } catch (err) {
+      console.warn('Travel times unavailable, keeping estimates:', err);
+      return;
+    }
+    if (myId !== travelRequestId) return;   // a newer plan is on screen
+
+    (result.legs || []).forEach((t, k) => {
+      if (!t) return;
+      const i = legIdx[k];
+      stops[i] = { ...stops[i], travelBefore: t, travelReal: true };
+      const row = document.getElementById('tlt-' + i);
+      if (row) row.textContent = travelLabel(t, false);
+    });
+
+    // Re-time: a stop can't start before you've arrived from the last one.
+    let prevEnd = null;
+    stops.forEach((s, i) => {
+      let start = s.startAt;
+      if (prevEnd != null && s.travelBefore) start = Math.max(start, prevEnd + s.travelBefore.minutes);
+      stops[i] = { ...s, startAt: start };
+      const sEl = document.getElementById('tls-' + i), eEl = document.getElementById('tle-' + i);
+      if (sEl) sEl.textContent = '▶ ' + minsToTime(start);
+      if (eEl) eEl.textContent = '■ ' + minsToTime(start + s.dur) + ' (est.)';
+      prevEnd = start + s.dur;
+    });
+
+    const note = document.getElementById('travel-note');
+    if (note) {
+      const over = prevEnd - endMins;
+      note.innerHTML = travelSummary(stops, true) + (over > 10
+        ? `<div class="travel-warn">⏱ With real travel times this plan runs about ${over} min past your end time. Remove a stop to fit.</div>`
+        : '');
+    }
   }
 
   function removeStop(idx) {

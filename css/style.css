@@ -328,6 +328,10 @@
     .tl-act-btn{padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--muted);font-family:'Inter',sans-serif;transition:all 0.15s}
     .tl-act-btn:hover{border-color:var(--pink);color:var(--pink)}
     .tl-act-btn.remove:hover{border-color:var(--red);color:var(--red)}
+    .travel-ok,.travel-warn{margin:12px 0 0;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5}
+    .travel-ok{background:var(--pink-light);color:var(--text)}
+    .travel-warn{background:#FEF3C7;color:#92400E;border:1px solid #FDE68A}
+    .travel-warn + .travel-warn{margin-top:8px}
     .travel-seg{display:flex;align-items:center;gap:10px;padding:6px 0;margin-bottom:6px}
     .travel-line{flex:1;height:0;border-top:2px dashed var(--border)}
     .travel-pill{background:#FEF9C3;border:1px solid #FDE68A;border-radius:100px;padding:5px 14px;font-size:12px;font-weight:600;color:#854D0E;white-space:nowrap}
