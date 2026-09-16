@@ -287,6 +287,24 @@
       CATEGORIES = [];
     }
     renderCategoryChips();
+    renderStatsBar();
+  }
+
+  // Hero proof line — real live counts, never invented numbers. Stays
+  // hidden until there's at least one real deal, so a pre-launch visitor
+  // sees nothing rather than an embarrassing "0 live deals".
+  function renderStatsBar() {
+    const bar = document.getElementById('hero-stats');
+    if (!bar) return;
+    if (DEALS.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+    const dealsEl = document.getElementById('stat-deals-num');
+    const catsEl  = document.getElementById('stat-cats-num');
+    if (dealsEl) dealsEl.textContent = String(DEALS.length);
+    if (catsEl)  catsEl.textContent  = String(CATEGORIES.length);
+    bar.style.display = '';
   }
 
   // Single source of truth for how a deal's price is shown. A deal is
