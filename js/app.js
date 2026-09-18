@@ -577,7 +577,11 @@
   // Two meals need at least this long between them to be a sensible date.
   const MEAL_GAP_MINS = 180;
 
-  function buildItinerary(vibeKey, budget, startMins, minutesAvailable, areaFilter, day) {
+  // opts.avoid: ids to steer away from (Regenerate), opts.shuffle: add a
+  // little randomness so Regenerate doesn't return the identical plan.
+  function buildItinerary(vibeKey, budget, startMins, minutesAvailable, areaFilter, day, opts = {}) {
+    const avoid = opts.avoid || new Set();
+    const jitter = () => opts.shuffle ? Math.random() * 20 : 0;
     const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[vibeKey] || 'Romantic';
     const endMins = startMins + minutesAvailable;
 
@@ -586,10 +590,14 @@
     // Also drop anything not valid on the date picked (weekday-only deals
     // on a Saturday, weekday deals on a public holiday).
     let paidPool = DEALS.filter(d => hasFixedPrice(d) && validOnDay(d, day));
+    // A deal the user asked to plan around goes in the pool even if it's a
+    // "20% off" deal with no fixed price (it's paid at the venue).
+    const pinned = opts.pin ? DEALS.find(d => d.id === opts.pin) : null;
+    if (pinned && validOnDay(pinned, day) && !paidPool.includes(pinned)) paidPool.push(pinned);
     // Narrow to the chosen area, but fall back to the whole island rather
     // than hand back nothing because a region is thin.
     if (areaFilter && areaFilter !== 'any') {
-      const inArea = paidPool.filter(d => d.region === areaFilter);
+      const inArea = paidPool.filter(d => d.region === areaFilter || d === pinned);
       if (inArea.length) paidPool = inArea;
     }
 
@@ -627,6 +635,9 @@
       }
       if ((d.vibe || '').toLowerCase() === vibeLabel.toLowerCase()) sc -= 50;
       sc += (catCount.get(d.type) || 0) * 30;
+      if (avoid.has(d.id)) sc += 60;
+      if (pinned && d === pinned) sc -= 1000;
+      sc += jitter();
       const km = haversineKm(out[out.length - 1], d);
       if (km != null) sc += km * 2;
       return sc;
@@ -641,7 +652,7 @@
         .filter(d => {
           if (usedIds.has(d.id) || total + d.price > budget) return false;
           // Don't send people across the island for one stop.
-          if (estTravel(out[out.length - 1], d).minutes > MAX_HOP_MINS) return false;
+          if (d !== pinned && estTravel(out[out.length - 1], d).minutes > MAX_HOP_MINS) return false;
           const at = arrival(d);
           return at + d.dur <= endMins
             && (catCount.get(d.type) || 0) < 2
@@ -668,8 +679,15 @@
         // Opening stop: on-vibe first, then closest to where the deals are.
         const onVibe = f => (f.vibe || '').toLowerCase() === vibeLabel.toLowerCase() ? 0 : 5;
         const nearHub = f => hub ? (haversineKm(hub, f) || 0) : 0;
-        return FREE_ACTIVITIES.filter(ok)
-          .sort((a, b) => (onVibe(a) + nearHub(a)) - (onVibe(b) + nearHub(b)))[0] || null;
+        const fscore = f => onVibe(f) + nearHub(f) + (avoid.has(f.id) ? 8 : 0) + jitter() / 4;
+        return FREE_ACTIVITIES.filter(ok).sort((a, b) => fscore(a) - fscore(b))[0] || null;
+      }
+      if (opts.shuffle || avoid.size) {
+        // Same idea as nearestFreeActivity, with Regenerate's variety added.
+        const fscore = f => (haversineKm(prev, f) ?? 99)
+          - ((f.vibe || '').toLowerCase() === vibeLabel.toLowerCase() ? 1.5 : 0)
+          + (avoid.has(f.id) ? 4 : 0) + jitter() / 5;
+        return FREE_ACTIVITIES.filter(f => !usedIds.has(f.id) && ok(f)).sort((a, b) => fscore(a) - fscore(b))[0] || null;
       }
       return nearestFreeActivity(prev, usedIds, vibeLabel, ok);
     };
@@ -968,40 +986,223 @@
         steps[step].classList.add('active');
       } else {
         clearInterval(iv);
-        setTimeout(() => { buildResults(); go('results'); }, 500);
+        setTimeout(() => {
+          const pin = PINNED_DEAL;
+          PINNED_DEAL = null;
+          renderPinBanner();
+          buildResults(pin ? { pin } : {});
+          go('results');
+        }, 500);
       }
     }, 560);
   }
 
-  function buildResults() {
-    const budget = parseInt(document.getElementById('budget-slider').value) || 70;
-    const time   = document.getElementById('p-time')?.value || '18:30';
-    const dur    = parseInt(document.getElementById('p-dur')?.value) || 3;
-    // No date picked = planning for today.
-    const dateVal= document.getElementById('p-date')?.value || sgToday();
-    const day    = dayInfo(dateVal);
-    const loc    = document.getElementById('p-loc')?.value || 'any';
-    // 'any' is the filter value; show something human in the results pill.
-    const locLabel = loc === 'any' ? 'Anywhere in Singapore' : loc + ', Singapore';
-    const dateStr= dateVal
-      ? new Date(dateVal + 'T12:00').toLocaleDateString('en-US', {weekday:'long',day:'numeric',month:'long'})
-      : formatDate(new Date());
+  // ============================================================
+  // PLAN PAGE — everything on the results page renders from currentPlan,
+  // so Remove / Replace / Regenerate / real travel times all stay in sync
+  // with the totals.
+  // ============================================================
+  const VIBE_LABELS = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' };
+  let currentPlan = null;          // { params, stops, savedId }
+  const REAL_TRAVEL = new Map();   // 'fromId>toId' -> { minutes, mode } from OneMap
 
+  function readPlannerParams() {
+    return {
+      vibe:   curVibe,
+      budget: parseInt(document.getElementById('budget-slider').value) || 70,
+      time:   document.getElementById('p-time')?.value || '18:30',
+      dur:    parseInt(document.getElementById('p-dur')?.value) || 3,
+      // No date picked = planning for today.
+      date:   document.getElementById('p-date')?.value || sgToday(),
+      loc:    document.getElementById('p-loc')?.value || 'any'
+    };
+  }
+
+  // "Fun Afternoon", "Romantic Evening" — from the vibe and start time.
+  function planTitle(params) {
+    const m = timeToMins(params.time);
+    const part = m < 720 ? 'Morning' : m < 1020 ? 'Afternoon' : m < 1260 ? 'Evening' : 'Night';
+    return `${VIBE_LABELS[params.vibe] || 'Date'} ${part}`;
+  }
+
+  function buildResults(opts = {}) {
+    const params = opts.params || readPlannerParams();
+    const stops = buildItinerary(params.vibe, params.budget, timeToMins(params.time),
+      params.dur * 60, params.loc, dayInfo(params.date), opts);
+    currentPlan = { params, stops, savedId: null };
+    retimePlan();
+    renderPlan();
+    refineTravelTimes();
+    if (opts.pin) {
+      const d = DEALS.find(x => x.id === opts.pin);
+      if (d && !stops.some(x => x.id === d.id)) {
+        showToast(`${d.name} doesn't fit this date${whenNote(d) ? ' (' + whenNote(d) + ')' : ''}. Try another day or time.`);
+      }
+    }
+  }
+
+  // "evening, Fri–Sat" style hint for when a deal is on.
+  function whenNote(d) {
+    const slotNames = { morning: 'mornings', midday: 'lunch', afternoon: 'afternoons', evening: 'evenings', late: 'late nights' };
+    const bits = [];
+    if (d.timeSlots && d.timeSlots.length) bits.push(d.timeSlots.map(x => slotNames[x] || x).join('/'));
+    const f = formatDays(d.days);
+    if (f) bits.push(f + ' only');
+    return bits.join(', ');
+  }
+
+  // ------------------------------------------------------------
+  // ADD TO PLAN — from a deal card or the deal page.
+  // With a plan open: slot it in where it makes sense.
+  // Without one: open the planner and build around it.
+  // ------------------------------------------------------------
+  let PINNED_DEAL = null;
+
+  function addToPlan(id) {
+    const d = DEALS.find(x => x.id === id);
+    if (!d) return;
+    if (currentPlan && currentPlan.stops.length) {
+      if (currentPlan.stops.some(s => s.id === id)) {
+        go('results');
+        showToast(`${d.name} is already in your plan.`);
+        return;
+      }
+      insertIntoPlan(d);
+      return;
+    }
+    PINNED_DEAL = id;
+    // Plan around its vibe unless they've already picked one.
+    const vibeKey = Object.keys(VIBE_LABELS).find(k => VIBE_LABELS[k].toLowerCase() === (d.vibe || '').toLowerCase());
+    go('planner');
+    if (vibeKey) {
+      const btn = document.querySelector(`[data-vibe="${vibeKey}"]`);
+      if (btn) pickVibe(btn);
+    }
+    renderPinBanner();
+  }
+
+  function renderPinBanner() {
+    const el = document.getElementById('pin-banner');
+    if (!el) return;
+    const d = PINNED_DEAL && DEALS.find(x => x.id === PINNED_DEAL);
+    if (!d) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const note = whenNote(d);
+    el.innerHTML = `<span>📌 Planning around <strong>${escHtmlApp(d.name)}</strong>${note ? ` <span class="pin-note">(${escHtmlApp(note)})</span>` : ''}</span>
+      <button class="pin-clear" onclick="clearPin()" aria-label="Stop planning around this deal">✕</button>`;
+    el.style.display = '';
+  }
+
+  function clearPin() {
+    PINNED_DEAL = null;
+    renderPinBanner();
+  }
+
+  // Try every position; keep the one where the deal fits its time slot
+  // and the plan runs over least.
+  function insertIntoPlan(d) {
+    const p = currentPlan;
+    const endMins = timeToMins(p.params.time) + p.params.dur * 60;
+    const original = p.stops;
+    let best = null;
+    for (let k = 0; k <= original.length; k++) {
+      p.stops = [...original.slice(0, k), { ...d }, ...original.slice(k)];
+      retimePlan();
+      const placed = p.stops[k];
+      if (!fitsAt(placed, placed.startAt)) continue;
+      const meals = p.stops.filter((x, j) => j !== k && isMeal(x));
+      if (isMeal(placed) && meals.some(m => Math.abs(m.startAt - placed.startAt) < MEAL_GAP_MINS)) continue;
+      const last = p.stops[p.stops.length - 1];
+      const over = Math.max(0, last.startAt + last.dur - endMins);
+      // Ties go to the later slot: added things usually come after what's planned.
+      if (!best || over <= best.over) best = { k, over, stops: p.stops };
+    }
+    if (!best) {
+      p.stops = original;
+      retimePlan();
+      go('results');
+      renderPlan();
+      const note = whenNote(d);
+      showToast(`${d.name} doesn't fit this plan${note ? ' (' + note + ')' : ''}. Replace a stop or plan another time.`);
+      return;
+    }
+    p.stops = best.stops;
+    p.savedId = null;
+    renderPlan();
+    go('results');
+    refineTravelTimes();
+    const total = p.stops.reduce((t, x) => t + x.price, 0);
+    const msg = total > p.params.budget
+      ? `Added ${d.name}. That puts you ${money(total - p.params.budget)} over budget.`
+      : best.over > 10
+        ? `Added ${d.name}. The plan now runs ${best.over} min over. Remove a stop to fit.`
+        : `Added ${d.name} to your plan.`;
+    showToast(msg, 'Undo', () => {
+      p.stops = original; retimePlan(); renderPlan(); refineTravelTimes();
+    });
+  }
+
+  // Regenerate: same settings, steer away from what's on screen.
+  function regeneratePlan() {
+    if (!currentPlan) return startGenerate();
+    const before = currentPlan.stops.map(s => s.id).join(',');
+    buildResults({ params: currentPlan.params, avoid: new Set(currentPlan.stops.map(s => s.id)), shuffle: true });
+    if (currentPlan.stops.map(s => s.id).join(',') === before) {
+      showToast("That's the only plan that fits these settings. Try a bigger budget or another area.");
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // First time at or after `mins` when the stop makes sense (15-min steps).
+  function earliestFit(stop, mins) {
+    for (let t = mins; t < mins + 12 * 60; t += 15) if (fitsAt(stop, t)) return t;
+    return mins;
+  }
+
+  // Recompute start times in order: arrive after the previous stop plus
+  // travel (real OneMap time if we have it), and wait if it's too early.
+  function retimePlan() {
+    const p = currentPlan;
+    if (!p) return;
+    const start = timeToMins(p.params.time);
+    let prev = null, prevEnd = start;
+    p.stops = p.stops.map(s => {
+      let travel = { minutes: 0, mode: 'none' }, real = false;
+      if (prev) {
+        const known = REAL_TRAVEL.get(prev.id + '>' + s.id);
+        travel = known || estTravel(prev, s);
+        real = !!known;
+      }
+      const at = earliestFit(s, prevEnd + travel.minutes);
+      const next = { ...s, startAt: at, travelBefore: travel, travelReal: real };
+      prev = next;
+      prevEnd = at + s.dur;
+      return next;
+    });
+  }
+
+  function renderPlan() {
+    const p = currentPlan;
+    const { params } = p;
+    const day = dayInfo(params.date);
+    const locLabel = params.loc === 'any' ? 'Anywhere in Singapore' : params.loc + ', Singapore';
+    const dateStr = new Date(params.date + 'T12:00').toLocaleDateString('en-US', { weekday:'long', day:'numeric', month:'long' });
+
+    document.querySelector('.results-plan-name').innerHTML =
+      `Your <span>${escHtmlApp(planTitle(params))}</span> ✨`;
     document.getElementById('res-date-line').textContent =
-      dateStr + ' • ' + fmtTime(time) + ' • ' + dur + ' hours' +
+      dateStr + ' • ' + fmtTime(params.time) + ' • ' + params.dur + ' hours' +
       (day.holiday ? ' • Public holiday: ' + day.holiday : '');
 
-    const vibeLabel = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' }[curVibe] || 'Romantic';
-    const stops = buildItinerary(curVibe, budget, timeToMins(time), dur * 60, loc, day);
+    const stops = p.stops;
     const paidStops = stops.filter(s => !s.isFree);
 
     // If nothing paid fits, say so plainly and name the real cheapest price
     // rather than quietly handing back a thin or over-budget plan.
     let budgetNote = '';
-    if (paidStops.length === 0) {
+    if (paidStops.length === 0 && stops.length) {
       const cheapest = cheapestDeal();
       budgetNote = cheapest
-        ? `<div class="travel-warn">No paid deal currently fits ${money(budget)}. The cheapest we have is <strong>${escHtmlApp(cheapest.name)}</strong> at ${money(cheapest.price)}. Here's a free plan instead — raise your budget to mix in deals.</div>`
+        ? `<div class="travel-warn">No paid deal currently fits ${money(params.budget)}. The cheapest we have is <strong>${escHtmlApp(cheapest.name)}</strong> at ${money(cheapest.price)}. Here's a free plan instead — raise your budget to mix in deals.</div>`
         : `<div class="travel-warn">No deals available to plan with yet.</div>`;
     }
 
@@ -1009,8 +1210,9 @@
       document.getElementById('timeline').innerHTML = `
         <div class="empty-state">
           <div class="es-icon">🗓</div>
-          <h3>No deals to plan with yet</h3>
-          <p>Once suppliers add deals, they'll show up here.</p>
+          <h3>Nothing left in this plan</h3>
+          <p>Build a fresh one with the same settings, or change them.</p>
+          <button class="btn-pink" onclick="regeneratePlan()">Build a new plan</button>
         </div>`;
       document.getElementById('res-pills').innerHTML = '';
       document.getElementById('total-summary').innerHTML = '';
@@ -1018,24 +1220,18 @@
       return;
     }
 
-    let cursor = timeToMins(time), total = 0;
+    let total = 0;
     let tlHTML = '<div class="tl-spine"></div>';
-
     stops.forEach((s, i) => {
-      // Stops can start later than the previous one ended (waiting for
-      // dinner time), so use the builder's time, not a running total.
-      cursor = s.startAt ?? cursor;
-      const endMins  = cursor + s.dur;
-      const startStr = minsToTime(cursor);
-      const endStr   = minsToTime(endMins);
+      const startStr = minsToTime(s.startAt);
+      const endStr   = minsToTime(s.startAt + s.dur);
       total += s.price;
       const typeClass = s.type === 'food' ? 'food' : s.type === 'drinks' ? 'drinks' : 'activity';
       const thumb = s.image
         ? `<img src="${escHtmlApp(s.image)}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`
         : s.emoji;
-
       if (i > 0 && s.travelBefore && s.travelBefore.mode !== 'none') {
-        tlHTML += `<div class="travel-seg"><div class="travel-line"></div><div class="travel-pill" id="tlt-${i}">${travelLabel(s.travelBefore, true)}</div><div class="travel-line"></div></div>`;
+        tlHTML += `<div class="travel-seg"><div class="travel-line"></div><div class="travel-pill">${travelLabel(s.travelBefore, !s.travelReal)}</div><div class="travel-line"></div></div>`;
       }
       tlHTML += `
         <div class="tl-item">
@@ -1047,8 +1243,8 @@
               <div class="tl-name">${escHtmlApp(s.name)}</div>
               <div class="tl-loc">📍 ${escHtmlApp(s.location)}</div>
               <div class="tl-times">
-                <div class="tl-time-chip" id="tls-${i}">▶ ${startStr}</div>
-                <div class="tl-time-chip" id="tle-${i}">■ ${endStr} (est.)</div>
+                <div class="tl-time-chip">▶ ${startStr}</div>
+                <div class="tl-time-chip">■ ${endStr} (est.)</div>
               </div>
             </div>
             <div class="tl-price-col">
@@ -1062,37 +1258,44 @@
               </div>
             </div>
           </div>
+          <div class="swap-panel" id="swap-${i}" style="display:none"></div>
         </div>`;
-
-      cursor = endMins;
     });
 
-    // Travel between stops. Starts as our estimate; refineTravelTimes()
-    // swaps in OneMap's public-transport figures once they arrive.
-    const travelNote = `<div id="travel-note">${travelSummary(stops, false)}</div>`;
+    const startMins = timeToMins(params.time);
+    const endMins = startMins + params.dur * 60;
+    const lastEnd = stops[stops.length - 1].startAt + stops[stops.length - 1].dur;
+    const over = lastEnd - endMins;
+    const overNote = over > 10
+      ? `<div class="travel-warn">⏱ This plan runs about ${over} min past your end time. Remove a stop to fit.</div>` : '';
 
-    document.getElementById('timeline').innerHTML = budgetNote + tlHTML + travelNote +
+    document.getElementById('timeline').innerHTML = budgetNote + tlHTML +
+      `<div id="travel-note">${travelSummary(stops, stops.slice(1).every(s => s.travelReal))}${overNote}</div>` +
       `<div style="font-size:12px;color:var(--muted);margin-top:12px;padding-left:4px">
         ⏱ Stop times are estimates (60 min per deal). Travel times are for public transport or walking — check the route before you go.
       </div>`;
-    refineTravelTimes(stops, dateVal, time, timeToMins(time) + dur * 60);
 
-    const totalMins = cursor - timeToMins(time);
+    const totalMins = lastEnd - startMins;
+    const durStr = `${Math.floor(totalMins / 60)}h${totalMins % 60 ? ' ' + (totalMins % 60) + 'm' : ''}`;
+    const stopWord = stops.length === 1 ? 'stop' : 'stops';
     document.getElementById('res-pills').innerHTML = `
-      <div class="r-pill">📍 ${stops.length} stops</div>
-      <div class="r-pill">💰 ${money(total)} total</div>
-      <div class="r-pill">🕐 ${Math.floor(totalMins/60)}h ${totalMins%60 > 0 ? totalMins%60+'m' : ''}</div>
+      <div class="r-pill">📍 ${stops.length} ${stopWord}</div>
+      <div class="r-pill">💰 ${money(total)} total${stops.some(x => x.discountLabel) ? ' + discount paid at venue' : ''}</div>
+      <div class="r-pill">🕐 ${durStr}</div>
       <div class="r-pill">📍 ${escHtmlApp(locLabel)}</div>`;
 
+    const saved = !!p.savedId;
     document.getElementById('total-summary').innerHTML = `
       <div class="ts-item"><div class="ts-label">Total cost</div><div class="ts-val pink">${money(total)}</div></div>
       <div class="ts-divider"></div>
-      <div class="ts-item"><div class="ts-label">Budget left</div><div class="ts-val">${money(Math.max(0, budget - total))}</div></div>
+      <div class="ts-item"><div class="ts-label">Budget left</div><div class="ts-val">${money(Math.max(0, params.budget - total))}</div></div>
       <div class="ts-divider"></div>
-      <div class="ts-item"><div class="ts-label">Duration</div><div class="ts-val">${Math.floor(totalMins/60)}h ${totalMins%60 > 0 ? totalMins%60+'m' : ''}</div></div>
+      <div class="ts-item"><div class="ts-label">Duration</div><div class="ts-val">${durStr}</div></div>
       <div class="ts-divider"></div>
       <div class="ts-item"><div class="ts-label">Stops</div><div class="ts-val">${stops.length}</div></div>
-      <button class="save-plan-btn" onclick="savePlan()">Save this plan ♡</button>`;
+      <button class="save-plan-btn${saved ? ' saved' : ''}" onclick="savePlan()" ${saved ? 'disabled' : ''}>${saved ? 'Saved ✓' : 'Save this plan ♡'}</button>`;
+    const topSave = document.getElementById('res-save-btn');
+    if (topSave) { topSave.textContent = saved ? 'Saved ✓' : 'Save Plan'; topSave.disabled = saved; }
 
     const stopIds = new Set(stops.map(s => s.id));
     const extras  = DEALS.filter(d => !stopIds.has(d.id)).slice(0, 4);
@@ -1122,27 +1325,27 @@
   }
 
   // Ask OneMap (via our travel-time function) for real public-transport
-  // times, then update the travel rows and push stop times back if needed.
+  // times for any hop we don't know yet, then re-time and redraw.
   // Failing quietly is fine: the estimates are already on screen.
-  let travelRequestId = 0;
-  async function refineTravelTimes(stops, dateVal, time, endMins) {
-    const legs = [];
-    const legIdx = [];
-    stops.forEach((s, i) => {
-      if (i === 0 || !s.travelBefore || s.travelBefore.mode === 'none') return;
-      const a = stops[i - 1];
-      if (a.lat == null || s.lat == null) return;
+  async function refineTravelTimes() {
+    const p = currentPlan;
+    if (!p) return;
+    const legs = [], keys = [];
+    p.stops.forEach((s, i) => {
+      if (i === 0) return;
+      const a = p.stops[i - 1];
+      const k = a.id + '>' + s.id;
+      if (REAL_TRAVEL.has(k) || a.lat == null || s.lat == null || keys.includes(k)) return;
       legs.push({ from: { lat: a.lat, lng: a.lng }, to: { lat: s.lat, lng: s.lng } });
-      legIdx.push(i);
+      keys.push(k);
     });
     if (!legs.length) return;
-    const myId = ++travelRequestId;
     let result;
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/travel-time`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON },
-        body: JSON.stringify({ legs, date: dateVal, time })
+        body: JSON.stringify({ legs, date: p.params.date, time: p.params.time })
       });
       if (!res.ok) return;
       result = await res.json();
@@ -1150,53 +1353,190 @@
       console.warn('Travel times unavailable, keeping estimates:', err);
       return;
     }
-    if (myId !== travelRequestId) return;   // a newer plan is on screen
-
-    (result.legs || []).forEach((t, k) => {
-      if (!t) return;
-      const i = legIdx[k];
-      stops[i] = { ...stops[i], travelBefore: t, travelReal: true };
-      const row = document.getElementById('tlt-' + i);
-      if (row) row.textContent = travelLabel(t, false);
-    });
-
-    // Re-time: a stop can't start before you've arrived from the last one.
-    let prevEnd = null;
-    stops.forEach((s, i) => {
-      let start = s.startAt;
-      if (prevEnd != null && s.travelBefore) start = Math.max(start, prevEnd + s.travelBefore.minutes);
-      stops[i] = { ...s, startAt: start };
-      const sEl = document.getElementById('tls-' + i), eEl = document.getElementById('tle-' + i);
-      if (sEl) sEl.textContent = '▶ ' + minsToTime(start);
-      if (eEl) eEl.textContent = '■ ' + minsToTime(start + s.dur) + ' (est.)';
-      prevEnd = start + s.dur;
-    });
-
-    const note = document.getElementById('travel-note');
-    if (note) {
-      const over = prevEnd - endMins;
-      note.innerHTML = travelSummary(stops, true) + (over > 10
-        ? `<div class="travel-warn">⏱ With real travel times this plan runs about ${over} min past your end time. Remove a stop to fit.</div>`
-        : '');
-    }
+    (result.legs || []).forEach((t, k) => { if (t) REAL_TRAVEL.set(keys[k], t); });
+    if (currentPlan !== p) return;   // a different plan is on screen now
+    retimePlan();
+    renderPlan();
   }
 
   function removeStop(idx) {
-    const card = document.getElementById('tlc-' + idx);
-    if (card) card.closest('.tl-item').remove();
+    if (!currentPlan) return;
+    const [gone] = currentPlan.stops.splice(idx, 1);
+    currentPlan.savedId = null;   // it's a different plan now
+    retimePlan();
+    renderPlan();
+    refineTravelTimes();
+    if (gone) showToast(`Removed ${gone.name}.`, 'Undo', () => {
+      currentPlan.stops.splice(idx, 0, gone);
+      retimePlan(); renderPlan(); refineTravelTimes();
+    });
+  }
+
+  // Alternatives that fit the same spot: right time of day, valid that
+  // day, within what's left of the budget, not already in the plan.
+  function swapOptions(idx) {
+    const p = currentPlan, s = p.stops[idx];
+    const prev = p.stops[idx - 1], next = p.stops[idx + 1];
+    // Other meals in the plan, to keep the 3-hour gap between meals.
+    const otherMeals = p.stops.filter((x, j) => j !== idx && isMeal(x));
+    const day = dayInfo(p.params.date);
+    const inPlan = new Set(p.stops.map(x => x.id));
+    const spent = p.stops.reduce((t, x) => t + x.price, 0) - s.price;
+    const areaOk = x => p.params.loc === 'any' || x.region === p.params.loc;
+    const arriveAt = x => (prev ? prev.startAt + prev.dur + estTravel(prev, x).minutes : s.startAt);
+    const pool = (s.isFree ? FREE_ACTIVITIES : DEALS.filter(d => hasFixedPrice(d) && validOnDay(d, day)))
+      .filter(x => !inPlan.has(x.id) && areaOk(x) && spent + x.price <= p.params.budget)
+      .filter(x => {
+        const at = arriveAt(x);
+        if (!fitsAt(x, at)) return false;
+        if (prev && estTravel(prev, x).minutes > 40) return false;
+        if (next && estTravel(x, next).minutes > 40) return false;
+        if (isMeal(x) && otherMeals.some(m => Math.abs(m.startAt - at) < MEAL_GAP_MINS)) return false;
+        return true;
+      });
+    const vibe = (VIBE_LABELS[p.params.vibe] || '').toLowerCase();
+    return pool.map(x => ({ x, score: (prev ? estTravel(prev, x).minutes : 0) - ((x.vibe || '').toLowerCase() === vibe ? 15 : 0) }))
+      .sort((a, b) => a.score - b.score).slice(0, 4).map(o => o.x);
   }
 
   function replaceStop(idx) {
-    go('explore');
+    const panel = document.getElementById('swap-' + idx);
+    if (!panel) return;
+    if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+    document.querySelectorAll('.swap-panel').forEach(el => (el.style.display = 'none'));
+    const opts = swapOptions(idx);
+    const prev = currentPlan.stops[idx - 1];
+    panel.innerHTML = opts.length
+      ? `<div class="swap-head">Swap for one of these</div>` + opts.map(x => `
+          <div class="swap-row">
+            <div class="swap-info">
+              <div class="swap-name">${escHtmlApp(x.name)}</div>
+              <div class="swap-meta">${x.isFree ? 'Free' : (x.discountLabel ? escHtmlApp(x.discountLabel) : money(x.price))} · ${escHtmlApp(x.region || x.location || '')}${prev ? ' · ' + travelLabel(estTravel(prev, x), true) : ''}</div>
+            </div>
+            <button class="tl-act-btn" onclick="swapStop(${idx}, '${escHtmlApp(String(x.id))}')">Swap in</button>
+          </div>`).join('')
+      : `<div class="swap-empty">Nothing else fits this time slot and budget. You can remove this stop instead.</div>`;
+    panel.style.display = '';
   }
 
-  function savePlan() {
-    const name  = document.querySelector('.results-plan-name')?.textContent || 'My Date Plan';
-    const cost  = document.querySelector('.ts-val.pink')?.textContent || '$0';
-    const stops = document.querySelectorAll('#timeline .tl-card').length || 3;
-    savedPlans.push({ name, cost, date: new Date().toLocaleDateString(), emoji: '❤️', stops });
-    const btn = document.querySelector('.save-plan-btn');
-    if (btn) { btn.textContent = 'Saved! ✓'; btn.style.background = '#10B981'; }
+  function swapStop(idx, id) {
+    const p = currentPlan;
+    const old = p.stops[idx];
+    const pool = old.isFree ? FREE_ACTIVITIES : DEALS;
+    const next = pool.find(x => String(x.id) === id);
+    if (!next) return;
+    p.stops[idx] = { ...next };
+    p.savedId = null;
+    retimePlan();
+    renderPlan();
+    refineTravelTimes();
+  }
+
+  // ------------------------------------------------------------
+  // SAVED PLANS — account (saved_plans table) or this device.
+  // Stored as settings + stop ids so they can be reopened; deal
+  // details are looked up fresh when opened.
+  // ------------------------------------------------------------
+  const GUEST_PLANS_KEY = 'datify-guest-plans';
+  function getGuestPlans() {
+    try { return JSON.parse(localStorage.getItem(GUEST_PLANS_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+  function setGuestPlans(list) {
+    try { localStorage.setItem(GUEST_PLANS_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+
+  function serialisePlan() {
+    const p = currentPlan;
+    return {
+      name: planTitle(p.params),
+      total: p.stops.reduce((t, s) => t + s.price, 0),
+      plan: {
+        params: p.params,
+        stops: p.stops.map(s => ({ id: s.id, isFree: !!s.isFree }))
+      }
+    };
+  }
+
+  async function savePlan() {
+    if (!currentPlan || !currentPlan.stops.length || currentPlan.savedId) return;
+    const row = serialisePlan();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) {
+      const list = getGuestPlans();
+      const id = 'local-' + Date.now();
+      list.unshift({ id, ...row, created_at: new Date().toISOString() });
+      setGuestPlans(list);
+      currentPlan.savedId = id;
+      renderPlan();
+      showToast('Plan saved to this device.', 'Create an account to keep it', () => go('signup'));
+      return;
+    }
+    const { data, error } = await db.from('saved_plans')
+      .insert({ user_id: session.user.id, ...row }).select('id').single();
+    if (error) {
+      console.error('Could not save plan:', error);
+      showToast("Couldn't save the plan. Try again.");
+      return;
+    }
+    currentPlan.savedId = data.id;
+    renderPlan();
+    showToast('Plan saved. Find it under Saved → Plans.');
+  }
+
+  // Guest plans move into the account on sign-in (like the shortlist).
+  async function mergeGuestPlans(userId) {
+    const list = getGuestPlans();
+    if (!list.length) return;
+    try {
+      const rows = list.map(({ name, total, plan }) => ({ user_id: userId, name, total, plan }));
+      const { error } = await db.from('saved_plans').insert(rows);
+      if (error) throw error;
+      setGuestPlans([]);
+    } catch (err) {
+      console.error('Could not merge guest plans:', err);
+    }
+  }
+
+  async function loadSavedPlans() {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) { savedPlans = getGuestPlans(); return; }
+    await mergeGuestPlans(session.user.id);
+    const { data, error } = await db.from('saved_plans')
+      .select('id, name, total, plan, created_at').order('created_at', { ascending: false });
+    if (error) { console.error('Could not load plans:', error); savedPlans = []; return; }
+    savedPlans = data || [];
+  }
+
+  function openSavedPlan(id) {
+    const row = savedPlans.find(r => String(r.id) === String(id));
+    if (!row) return;
+    const stops = [];
+    let missing = 0;
+    (row.plan.stops || []).forEach(ref => {
+      const src = ref.isFree ? FREE_ACTIVITIES : DEALS;
+      const found = src.find(x => String(x.id) === String(ref.id));
+      if (found) stops.push({ ...found }); else missing++;
+    });
+    currentPlan = { params: row.plan.params, stops, savedId: missing ? null : row.id };
+    retimePlan();
+    renderPlan();
+    go('results');
+    refineTravelTimes();
+    if (missing) showToast(`${missing} ${missing === 1 ? 'stop has' : 'stops have'} ended since you saved this plan.`);
+  }
+
+  async function deleteSavedPlan(id, ev) {
+    if (ev) ev.stopPropagation();
+    if (String(id).startsWith('local-')) {
+      setGuestPlans(getGuestPlans().filter(p => p.id !== id));
+    } else {
+      const { error } = await db.from('saved_plans').delete().eq('id', id);
+      if (error) { showToast("Couldn't delete that plan."); return; }
+    }
+    if (currentPlan && currentPlan.savedId === id) currentPlan.savedId = null;
+    savedPlans = savedPlans.filter(p => p.id !== id);
+    buildSavedPlansList();
   }
 
   // ============================================================
@@ -1221,7 +1561,7 @@
           <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
           <div class="deal-footer">
             <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : `${money(d.price)}<span>${priceUnitLabel(d).startsWith('/') ? '' : ' '}${priceUnitLabel(d)}</span>`)}${d.originalPrice ? ` <span class="deal-price-was">${money(d.originalPrice)}</span>` : ''}</div>
-            <button class="deal-cta" onclick="event.stopPropagation();go('planner')">Add to plan</button>
+            <button class="deal-cta" onclick="event.stopPropagation();addToPlan('${d.id}')">Add to plan</button>
           </div>
         </div>
       </div>`;
@@ -1290,7 +1630,7 @@
       <div class="detail-sidebar">
         <div class="sidebar-price">${priceLabel(d)}</div>
         <div class="sidebar-price-sub">${escHtmlApp(priceUnitLabel(d))}${d.originalPrice ? ` · usually ${money(d.originalPrice)}` : ''}</div>
-        <button class="sidebar-btn primary" onclick="go('planner')">Add to plan</button>
+        <button class="sidebar-btn primary" onclick="addToPlan('${d.id}')">Add to plan</button>
         <button class="sidebar-btn secondary" id="save-deal-btn" data-deal-id="${d.id}" onclick="toggleSaveDeal('${d.id}', this)">${SAVED_DEAL_IDS.has(d.id) ? 'Saved ✓' : 'Save deal ♡'}</button>
       </div>`;
     if (SAVED_DEAL_IDS.has(d.id)) {
@@ -1325,8 +1665,9 @@
         </div>`;
   }
 
-  function buildSavedPlansList() {
+  async function buildSavedPlansList() {
     const el = document.getElementById('saved-plans-panel');
+    await loadSavedPlans();
     if (savedPlans.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
@@ -1335,20 +1676,30 @@
           <p>Generate a date plan and save it here for easy access.</p>
           <button class="btn-pink" onclick="go('planner')">Plan your first date →</button>
         </div>`;
-    } else {
-      el.innerHTML = savedPlans.map(p => `
-        <div class="saved-plan-card" onclick="go('results')">
-          <div class="spc-icon">${p.emoji}</div>
+      return;
+    }
+    const guestNote = !CURRENT_USER
+      ? `<div class="travel-ok" style="margin:0 0 16px">These plans are saved on this device only. <a href="#" onclick="go('signup');return false">Create an account</a> to keep them.</div>` : '';
+    el.innerHTML = guestNote + savedPlans.map(p => {
+      const params = p.plan?.params || {};
+      const when = params.date
+        ? new Date(params.date + 'T12:00').toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + fmtTime(params.time || '18:30')
+        : '';
+      const n = (p.plan?.stops || []).length;
+      return `
+        <div class="saved-plan-card" onclick="openSavedPlan('${escHtmlApp(String(p.id))}')">
+          <div class="spc-icon">❤️</div>
           <div class="spc-body">
-            <div class="spc-name">${p.name}</div>
-            <div class="spc-meta"><span>📅 ${p.date}</span><span>🛑 ${p.stops} stops</span></div>
+            <div class="spc-name">${escHtmlApp(p.name)}</div>
+            <div class="spc-meta"><span>📅 ${escHtmlApp(when)}</span><span>🛑 ${n} ${n === 1 ? 'stop' : 'stops'}</span></div>
           </div>
           <div class="spc-right">
-            <div class="spc-cost">${p.cost}</div>
+            <div class="spc-cost">${money(p.total)}</div>
             <div class="spc-stops">total</div>
           </div>
-        </div>`).join('');
-    }
+          <button class="spc-delete" title="Delete plan" aria-label="Delete plan" onclick="deleteSavedPlan('${escHtmlApp(String(p.id))}', event)">✕</button>
+        </div>`;
+    }).join('');
   }
 
   // ============================================================

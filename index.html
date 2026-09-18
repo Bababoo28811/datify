@@ -173,6 +173,7 @@
         <h1>Plan your <em>perfect date</em></h1>
         <p>Answer a few quick questions and we'll build the ideal evening for you.</p>
       </div>
+      <div class="pin-banner" id="pin-banner" style="display:none"></div>
       <div class="planner-card">
         <h3><span class="step-badge">1</span> What's your budget?</h3>
         <div class="budget-row">
@@ -266,8 +267,8 @@
             <div class="results-date" id="res-date-line"></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="replan-btn" onclick="startGenerate()">Regenerate</button>
-            <button class="btn-pink"   onclick="savePlan()">Save Plan</button>
+            <button class="replan-btn" onclick="regeneratePlan()">Regenerate</button>
+            <button class="btn-pink" id="res-save-btn" onclick="savePlan()">Save Plan</button>
           </div>
         </div>
         <div class="results-pills" id="res-pills"></div>
@@ -276,7 +277,7 @@
       <div class="total-summary" id="total-summary"></div>
       <div style="margin-top:32px;padding-top:28px;border-top:1px solid var(--border)">
         <div class="section-title" style="margin-bottom:6px">More deals to <span>add</span></div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:18px">Tap a deal to replace or add a stop</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:18px">Other deals you might like. Use Replace on a stop to swap one in.</div>
         <div class="deals-grid" id="res-extras"></div>
       </div>
     </div>

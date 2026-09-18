@@ -387,6 +387,21 @@
     .saved-header p{color:var(--muted);font-size:14px}
     .saved-plan-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;gap:20px;cursor:pointer;transition:all 0.18s}
     .saved-plan-card:hover{box-shadow:var(--shadow-sm);border-color:var(--pink)}
+    .spc-delete{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:6px;margin-left:-8px;border-radius:8px}
+    .spc-delete:hover{color:var(--red);background:var(--pink-light)}
+    .swap-panel{background:var(--white);border:1px dashed var(--pink);border-radius:var(--r-sm, 12px);padding:12px 16px;margin:-2px 0 10px}
+    .swap-head{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+    .swap-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--border)}
+    .swap-head + .swap-row{border-top:none}
+    .swap-row .tl-act-btn{white-space:nowrap;flex-shrink:0}
+    .swap-name{font-size:14px;font-weight:600}
+    .swap-meta{font-size:12px;color:var(--muted);margin-top:2px}
+    .swap-empty{font-size:13px;color:var(--muted)}
+    .pin-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--pink-light);border:1px solid var(--pink);border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:14px;color:var(--text)}
+    .pin-note{color:var(--muted);font-size:12px}
+    .pin-clear{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;flex-shrink:0}
+    .pin-clear:hover{color:var(--pink)}
+    .save-plan-btn.saved{background:#10B981;cursor:default}
     .spc-icon{width:60px;height:60px;border-radius:16px;background:var(--pink-light);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
     .spc-body{flex:1}
     .spc-name{font-size:16px;font-weight:700;margin-bottom:3px}
