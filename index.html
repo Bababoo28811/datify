@@ -219,17 +219,16 @@
           <button class="vibe-btn"    data-vibe="fun"          onclick="pickVibe(this)"><span class="ve">🎉</span><span class="vn">Fun</span><div class="vd">Playful &amp; lively</div></button>
           <button class="vibe-btn"    data-vibe="adventurous"  onclick="pickVibe(this)"><span class="ve">🧗</span><span class="vn">Adventurous</span><div class="vd">Bold &amp; exciting</div></button>
           <button class="vibe-btn"    data-vibe="chill"        onclick="pickVibe(this)"><span class="ve">☕</span><span class="vn">Chill</span><div class="vd">Cozy &amp; relaxed</div></button>
+          <button class="vibe-btn"    data-vibe="foodie"       onclick="pickVibe(this)"><span class="ve">🍜</span><span class="vn">Foodie</span><div class="vd">All about the food</div></button>
         </div>
       </div>
       <div class="planner-card">
         <h3><span class="step-badge">4</span> What to include?</h3>
-        <div class="chips-row">
-          <button class="chip on" onclick="this.classList.toggle('on')">🍽 Food</button>
-          <button class="chip on" onclick="this.classList.toggle('on')">🎭 Activities</button>
-          <button class="chip"    onclick="this.classList.toggle('on')">🍹 Drinks</button>
-          <button class="chip"    onclick="this.classList.toggle('on')">🌿 Outdoor</button>
-          <button class="chip"    onclick="this.classList.toggle('on')">🎵 Live Music</button>
-          <button class="chip"    onclick="this.classList.toggle('on')">🎨 Art</button>
+        <div class="chips-row" id="include-chips">
+          <button class="chip on" data-cat="dining"     onclick="toggleInclude(this)">🍽 Food</button>
+          <button class="chip on" data-cat="activities" onclick="toggleInclude(this)">🎭 Activities</button>
+          <button class="chip on" data-cat="drinks"     onclick="toggleInclude(this)">🍹 Drinks</button>
+          <button class="chip on" data-cat="outdoor"    onclick="toggleInclude(this)">🌿 Outdoor</button>
         </div>
       </div>
       <button class="generate-btn" onclick="startGenerate()">
@@ -275,9 +274,9 @@
       </div>
       <div class="timeline" id="timeline"><div class="tl-spine"></div></div>
       <div class="total-summary" id="total-summary"></div>
-      <div style="margin-top:32px;padding-top:28px;border-top:1px solid var(--border)">
+      <div id="res-extras-section" style="margin-top:32px;padding-top:28px;border-top:1px solid var(--border)">
         <div class="section-title" style="margin-bottom:6px">More deals to <span>add</span></div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:18px">Other deals you might like. Use Replace on a stop to swap one in.</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:18px" id="res-extras-sub">Other deals you might like. Use Replace on a stop to swap one in.</div>
         <div class="deals-grid" id="res-extras"></div>
       </div>
     </div>
@@ -294,10 +293,11 @@
         <span class="filter-label">Filter:</span>
         <button class="filter-chip filter-chip-cat on" onclick="filterDeals('all',this)">All</button>
         <span id="category-chips" style="display:contents"></span>
-        <span class="filter-label" style="margin-left:8px">Price:</span>
+        <span class="filter-label filter-label-price">Price:</span>
         <button class="filter-chip filter-chip-price" onclick="filterPrice('budget',this)">Under $20</button>
         <button class="filter-chip filter-chip-price" onclick="filterPrice('mid',this)">$20–$60</button>
         <button class="filter-chip filter-chip-price" onclick="filterPrice('premium',this)">$60+</button>
+        <button class="filter-chip filter-chip-price" onclick="filterPrice('discount',this)">% off</button>
       </div>
       <div class="explore-grid" id="explore-grid"></div>
     </div>
@@ -373,7 +373,10 @@
       </div>
 
       <div id="swipe-deck" style="display:none">
-      <button class="swipe-change-btn" onclick="showSwipeSetup()">⚙ Change filters</button>
+      <div class="swipe-head">
+        <button class="swipe-change-btn" onclick="showSwipeSetup()">⚙ Change filters</button>
+        <span class="swipe-saved-note" id="swipe-saved-note"></span>
+      </div>
       <div class="swipe-stack" id="swipe-stack"></div>
       <div class="swipe-actions">
         <button class="swipe-btn swipe-btn-pass" onclick="swipeButton('left')" title="Pass" aria-label="Pass">✕</button>

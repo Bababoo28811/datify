@@ -262,7 +262,7 @@
     .chip{padding:9px 18px;border-radius:100px;border:1.5px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:var(--white);color:var(--muted);transition:all 0.18s;display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif}
     .chip:hover{border-color:var(--pink);color:var(--pink)}
     .chip.on{background:var(--pink);border-color:var(--pink);color:var(--on-accent)}
-    .vibes-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .vibes-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
     .vibe-btn{border:1.5px solid var(--border);border-radius:16px;padding:16px 10px;text-align:center;cursor:pointer;background:var(--white);transition:all 0.18s;font-family:'Inter',sans-serif}
     .vibe-btn:hover,.vibe-btn.sel{border-color:var(--pink);background:var(--pink-xlight)}
     .vibe-btn .ve{font-size:26px;display:block;margin-bottom:6px}
@@ -353,6 +353,7 @@
     .explore-title p{font-size:14px;color:var(--muted);margin-top:4px}
     .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:16px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:24px}
     .filter-label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+    .filter-label-price{margin-left:8px}
     .filter-chip{padding:7px 16px;border-radius:100px;border:1.5px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:var(--white);color:var(--muted);transition:all 0.15s;font-family:'Inter',sans-serif}
     .filter-chip:hover,.filter-chip.on{background:var(--pink);border-color:var(--pink);color:var(--on-accent)}
     .explore-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px}
@@ -446,14 +447,32 @@
     .hiw-note{background:var(--pink-xlight);border:1px solid var(--border);border-radius:var(--r-sm);
               padding:14px 18px;font-size:13.5px;line-height:1.6;color:var(--muted);margin-top:10px}
 
+    /* Once the filter bar has to wrap, give each group its own line — otherwise
+       "Price:" trails a row of category chips and reads as one of them. */
+    @media(max-width:900px){
+      .filter-bar{gap:10px;padding:14px 16px}
+      .filter-label{flex:1 0 100%}
+      .filter-label-price{margin-left:0;margin-top:6px}
+    }
+
+    /* Tablet / iPad portrait. Five vibe tiles across is legible but cramped
+       here; three gives the labels room without dropping to a phone layout. */
+    @media(min-width:651px) and (max-width:900px){
+      .vibes-grid{grid-template-columns:repeat(3,1fr)}
+      .explore-wrap{padding:28px 20px}
+      .detail-main{grid-template-columns:1fr 260px;gap:20px}
+    }
+
     @media(max-width:650px){
       .nav{padding:0 16px}
       .hero{min-height:min(76vh,520px)}
       .hero-content{padding:0 20px 40px}
       .hero-actions{gap:10px}
-      .hero-actions button{flex:1;min-width:140px;justify-content:center}
+      .hero-actions button{flex:1;min-width:0;justify-content:center;
+                           padding:15px 16px;font-size:15px;white-space:nowrap}
       .section{padding:40px 16px}
       .input-grid,.vibes-grid{grid-template-columns:1fr 1fr}
+      .r-pill{font-size:12px;padding:5px 11px}
       .detail-main{grid-template-columns:1fr}
       .total-summary{justify-content:center}
       .ts-divider{display:none}
@@ -480,6 +499,12 @@
     .swipe-wrap{max-width:420px;margin:0 auto;padding:32px 16px 60px;text-align:center}
     .swipe-header h1{font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}
     .swipe-header p{color:var(--muted);font-size:14px;margin-bottom:24px}
+    /* A card flying off at translateX(±600px) is absolutely positioned, so its
+       overflow reaches the document: mid-swipe the page grew from 375px to
+       1036px wide, which let the browser pan sideways and dumped the scroll
+       position back to the top on every swipe. Clip it at the page edge.
+       `clip` rather than `hidden` so this never becomes a scroll container. */
+    #page-swipe{overflow-x:clip}
     .swipe-stack{position:relative;height:440px;margin-bottom:24px;touch-action:none}
     .swipe-card{position:absolute;inset:0;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;touch-action:none;-webkit-user-select:none}
     .swipe-card:active{cursor:grabbing}
@@ -504,8 +529,17 @@
     .swipe-setup-chips{display:flex;flex-wrap:wrap;gap:8px}
     .swipe-setup-chips .chip{padding:7px 14px}
     .swipe-setup-go{width:100%;margin-top:4px}
-    .swipe-change-btn{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;margin:-12px 0 12px;font-family:inherit}
+    .swipe-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-12px 0 4px}
+    /* Padding rather than bare text: this is a thumb target on a phone. */
+    .swipe-change-btn{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;padding:10px 2px;font-family:inherit}
     .swipe-change-btn:hover{color:var(--pink)}
+    /* Guest save counter. Lives up here because the toast it replaces landed
+       on top of the ✕ / ♡ buttons on a short phone. Quiet and always-on
+       rather than a pop-up, so it never has to interrupt a swipe. */
+    .swipe-saved-note{font-size:12px;color:var(--muted)}
+    .swipe-saved-note button{background:none;border:none;padding:10px 0;font:inherit;
+                             font-weight:700;color:var(--pink);cursor:pointer}
+    .swipe-saved-note button:hover{text-decoration:underline}
     .swipe-divider{background:var(--white);border:1.5px dashed var(--border)}
     .swipe-divider-inner{padding:28px;text-align:center}
     .swipe-divider-inner .es-icon{font-size:44px}

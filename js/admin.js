@@ -63,7 +63,7 @@ async function loadAdminDeals() {
 
   const { data, error } = await query;
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--red)">${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--red)">${escHtml(error.message)}</td></tr>`;
     return;
   }
 

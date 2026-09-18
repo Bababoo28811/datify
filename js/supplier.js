@@ -1,5 +1,5 @@
 // supplier.js — Supplier Dashboard Logic
-// Depends on: supabase.js (db must be defined first)
+// Depends on: js/supabase-client.js (db must be defined first)
 
 // The founder account can view this dashboard without being a whitelisted
 // supplier, so you can see exactly what suppliers see without adding
@@ -311,7 +311,7 @@ async function loadMyDeals() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--red)">${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--red)">${escHtml(error.message)}</td></tr>`;
     return;
   }
 

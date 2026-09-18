@@ -600,6 +600,14 @@
       const inArea = paidPool.filter(d => d.region === areaFilter || d === pinned);
       if (inArea.length) paidPool = inArea;
     }
+    // "What to include?" — a preference, not a hard filter. Inventory outside
+    // Dining is thin, so a strict filter would hand back an empty date; fall
+    // back to the wider pool the same way the area filter does. renderPlan()
+    // says so when that happens, rather than pretending the choice was honoured.
+    if (opts.cats && opts.cats.length) {
+      const inCats = paidPool.filter(d => opts.cats.includes(d.type) || d === pinned);
+      if (inCats.length) paidPool = inCats;
+    }
 
     const MAX_PAID = 4, MAX_STOPS = 8, MIN_SLOT = 25, STEP = 15, MAX_FREE_HOP_KM = 5, MAX_HOP_MINS = 40;
     const out = [];
@@ -856,6 +864,10 @@
       setGuestShortlist(ids);
       refreshSaveButtons();
       if (document.getElementById('page-saved')?.classList.contains('active')) buildSavedDeals();
+      // On Swipe the count lives in the header instead: a toast here covers the
+      // ✕ / ♡ buttons on a short phone, which is the one place you can't
+      // afford to lose them.
+      if (document.getElementById('page-swipe')?.classList.contains('active')) return;
       // Nudge once they've saved enough to care about losing it — but don't
       // nag on every swipe. Only at 2, 5 and 10.
       if ([2, 5, 10].includes(ids.length)) showGuestSavePrompt(ids.length);
@@ -914,7 +926,19 @@
     showToast(`${count} deals shortlisted on this device.`, 'Create an account to keep them', () => go('signup'));
   }
 
+  // Signed-out count for the Swipe header. Signed in, the shortlist is already
+  // safe on the account, so there's nothing to warn about.
+  function renderSwipeSavedNote() {
+    const el = document.getElementById('swipe-saved-note');
+    if (!el) return;
+    const n = CURRENT_USER ? 0 : getGuestShortlist().length;
+    el.innerHTML = n
+      ? `${n} saved · <button type="button" onclick="go('signup')">Create account</button>`
+      : '';
+  }
+
   function refreshSaveButtons() {
+    renderSwipeSavedNote();
     document.querySelectorAll('.deal-save').forEach(el => {
       el.classList.toggle('saved', SAVED_DEAL_IDS.has(el.dataset.dealId));
     });
@@ -1003,8 +1027,22 @@
   // with the totals.
   // ============================================================
   const VIBE_LABELS = { romantic:'Romantic', fun:'Fun', adventurous:'Adventurous', chill:'Chill', foodie:'Foodie' };
+  const INCLUDE_LABELS = { dining:'Food', activities:'Activities', drinks:'Drinks', outdoor:'Outdoor' };
   let currentPlan = null;          // { params, stops, savedId }
   const REAL_TRAVEL = new Map();   // 'fromId>toId' -> { minutes, mode } from OneMap
+
+  // "What to include?" chips. All on (or all off) means no restriction, so
+  // the common case doesn't quietly narrow the pool.
+  function readIncludeCats() {
+    const chips = [...document.querySelectorAll('#include-chips .chip')];
+    if (!chips.length) return null;
+    const on = chips.filter(c => c.classList.contains('on')).map(c => c.dataset.cat);
+    return (on.length === 0 || on.length === chips.length) ? null : on;
+  }
+
+  function toggleInclude(el) {
+    el.classList.toggle('on');
+  }
 
   function readPlannerParams() {
     return {
@@ -1014,7 +1052,8 @@
       dur:    parseInt(document.getElementById('p-dur')?.value) || 3,
       // No date picked = planning for today.
       date:   document.getElementById('p-date')?.value || sgToday(),
-      loc:    document.getElementById('p-loc')?.value || 'any'
+      loc:    document.getElementById('p-loc')?.value || 'any',
+      cats:   readIncludeCats()
     };
   }
 
@@ -1028,7 +1067,7 @@
   function buildResults(opts = {}) {
     const params = opts.params || readPlannerParams();
     const stops = buildItinerary(params.vibe, params.budget, timeToMins(params.time),
-      params.dur * 60, params.loc, dayInfo(params.date), opts);
+      params.dur * 60, params.loc, dayInfo(params.date), { ...opts, cats: params.cats });
     currentPlan = { params, stops, savedId: null };
     retimePlan();
     renderPlan();
@@ -1101,10 +1140,14 @@
   // and the plan runs over least.
   function insertIntoPlan(d) {
     const p = currentPlan;
+    const day = dayInfo(p.params.date);
     const endMins = timeToMins(p.params.time) + p.params.dur * 60;
     const original = p.stops;
     let best = null;
-    for (let k = 0; k <= original.length; k++) {
+    // Day-of-week and public-holiday rules are per-date, not per-slot, so a
+    // deal that isn't valid on the planned date can't fit anywhere in it.
+    const validToday = validOnDay(d, day);
+    for (let k = 0; validToday && k <= original.length; k++) {
       p.stops = [...original.slice(0, k), { ...d }, ...original.slice(k)];
       retimePlan();
       const placed = p.stops[k];
@@ -1122,7 +1165,10 @@
       go('results');
       renderPlan();
       const note = whenNote(d);
-      showToast(`${d.name} doesn't fit this plan${note ? ' (' + note + ')' : ''}. Replace a stop or plan another time.`);
+      const why = note ? ' (' + note + ')' : '';
+      showToast(validToday
+        ? `${d.name} doesn't fit this plan${why}. Replace a stop or plan another time.`
+        : `${d.name} isn't available on this date${why}. Try another day.`);
       return;
     }
     p.stops = best.stops;
@@ -1206,6 +1252,15 @@
         : `<div class="travel-warn">No deals available to plan with yet.</div>`;
     }
 
+    // The "What to include?" chips are a preference, not a hard filter (see
+    // buildItinerary). When it had to be widened, say so instead of silently
+    // handing back categories they unticked.
+    let catsNote = '';
+    if (params.cats && params.cats.length && paidStops.some(s => !params.cats.includes(s.type))) {
+      const want = params.cats.map(c => INCLUDE_LABELS[c] || c).join(' and ');
+      catsNote = `<div class="travel-warn">Not enough ${escHtmlApp(want)} deals to fill this date, so other categories are mixed in. Use Replace on a stop to swap one out.</div>`;
+    }
+
     if (stops.length === 0) {
       document.getElementById('timeline').innerHTML = `
         <div class="empty-state">
@@ -1269,8 +1324,36 @@
     const overNote = over > 10
       ? `<div class="travel-warn">⏱ This plan runs about ${over} min past your end time. Remove a stop to fit.</div>` : '';
 
-    document.getElementById('timeline').innerHTML = budgetNote + tlHTML +
-      `<div id="travel-note">${travelSummary(stops, stops.slice(1).every(s => s.travelReal))}${overNote}</div>` +
+    // Suggestions have to be things you could actually add to THIS plan:
+    // inside what's left of the budget, and open at some point in the window.
+    // Listing a $78 high tea under a plan with $10 left just reads as noise.
+    const stopIds = new Set(stops.map(s => s.id));
+    const budgetLeft = params.budget - total;
+    const fitsWindow = d => {
+      for (let t = startMins; t + d.dur <= endMins; t += 15) if (fitsAt(d, t)) return true;
+      return false;
+    };
+    const addable = DEALS.filter(d =>
+      !stopIds.has(d.id) && validOnDay(d, day) && hasFixedPrice(d) &&
+      d.price <= budgetLeft && fitsWindow(d));
+    // Same soft category preference as the planner itself.
+    const addableInCats = params.cats && params.cats.length
+      ? addable.filter(d => params.cats.includes(d.type)) : [];
+    const extras = (addableInCats.length ? addableInCats : addable).slice(0, 4);
+
+    // A plan that stops well short of the end time isn't finished, it's out of
+    // options. Say which, rather than quietly handing back a shorter date.
+    const under = endMins - lastEnd;
+    const shortNote = (over <= 10 && under >= 30)
+      ? `<div class="travel-ok">🕐 This plan ends about ${under} min early. ${
+          extras.length
+            ? 'Add one of the deals below to fill it.'
+            : `Nothing else fits ${money(budgetLeft)} and the time left.`
+        }</div>`
+      : '';
+
+    document.getElementById('timeline').innerHTML = budgetNote + catsNote + tlHTML +
+      `<div id="travel-note">${travelSummary(stops, stops.slice(1).every(s => s.travelReal))}${overNote}${shortNote}</div>` +
       `<div style="font-size:12px;color:var(--muted);margin-top:12px;padding-left:4px">
         ⏱ Stop times are estimates (60 min per deal). Travel times are for public transport or walking — check the route before you go.
       </div>`;
@@ -1297,8 +1380,12 @@
     const topSave = document.getElementById('res-save-btn');
     if (topSave) { topSave.textContent = saved ? 'Saved ✓' : 'Save Plan'; topSave.disabled = saved; }
 
-    const stopIds = new Set(stops.map(s => s.id));
-    const extras  = DEALS.filter(d => !stopIds.has(d.id)).slice(0, 4);
+    // Nothing worth adding: drop the whole section rather than leaving an
+    // empty grid under a heading that promises more deals.
+    const extrasSection = document.getElementById('res-extras-section');
+    if (extrasSection) extrasSection.style.display = extras.length ? '' : 'none';
+    const extrasSub = document.getElementById('res-extras-sub');
+    if (extrasSub) extrasSub.textContent = `Fits your plan and the ${money(budgetLeft)} you have left. Use Replace on a stop to swap one in.`;
     document.getElementById('res-extras').innerHTML = extras.map(d => dealCardHTML(d)).join('');
   }
 
@@ -1394,8 +1481,14 @@
         if (isMeal(x) && otherMeals.some(m => Math.abs(m.startAt - at) < MEAL_GAP_MINS)) return false;
         return true;
       });
+    // Honour "What to include?" here too, with the same fall-back as the
+    // planner: offering a drinks stop to someone who unticked Drinks is worse
+    // than nothing, but so is an empty Replace panel.
+    const cats = p.params.cats;
+    const inCats = (cats && cats.length && !s.isFree) ? pool.filter(x => cats.includes(x.type)) : [];
+    const choices = inCats.length ? inCats : pool;
     const vibe = (VIBE_LABELS[p.params.vibe] || '').toLowerCase();
-    return pool.map(x => ({ x, score: (prev ? estTravel(prev, x).minutes : 0) - ((x.vibe || '').toLowerCase() === vibe ? 15 : 0) }))
+    return choices.map(x => ({ x, score: (prev ? estTravel(prev, x).minutes : 0) - ((x.vibe || '').toLowerCase() === vibe ? 15 : 0) }))
       .sort((a, b) => a.score - b.score).slice(0, 4).map(o => o.x);
   }
 
@@ -1579,12 +1672,20 @@
   function buildExplore(filter = 'all', priceFilter = null) {
     let filtered = DEALS;
     if (filter !== 'all') filtered = filtered.filter(d => d.type === filter);
-    if (priceFilter === 'budget')  filtered = filtered.filter(d => d.price < 20);
-    else if (priceFilter === 'mid')     filtered = filtered.filter(d => d.price >= 20 && d.price <= 60);
-    else if (priceFilter === 'premium') filtered = filtered.filter(d => d.price > 60);
+    // A percentage offer has no computable price (it's stored as 0), so it
+    // must never fall into a money bucket — "Up to 26% off" the Zoo is about
+    // $38pp, and listing it under "Under $20" is exactly the kind of claim
+    // this site exists to avoid. They get their own bucket instead.
+    if (priceFilter === 'budget')       filtered = filtered.filter(d => hasFixedPrice(d) && d.price < 20);
+    else if (priceFilter === 'mid')     filtered = filtered.filter(d => hasFixedPrice(d) && d.price >= 20 && d.price <= 60);
+    else if (priceFilter === 'premium') filtered = filtered.filter(d => hasFixedPrice(d) && d.price > 60);
+    else if (priceFilter === 'discount') filtered = filtered.filter(d => !hasFixedPrice(d));
     const el = document.getElementById('explore-grid');
+    const note = priceFilter === 'discount'
+      ? `<div class="travel-warn" style="grid-column:1/-1">These are percentage discounts, so the final price depends on what you order and what the venue charges on the day. Check the original listing before you go.</div>`
+      : '';
     el.innerHTML = filtered.length
-      ? filtered.map(d => dealCardHTML(d)).join('')
+      ? note + filtered.map(d => dealCardHTML(d)).join('')
       : `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🔍</div><h3>No deals match</h3><p>Try a different filter.</p></div>`;
   }
 
@@ -1830,6 +1931,7 @@
   function renderSwipeStack() {
     const stack = document.getElementById('swipe-stack');
     if (!stack) return;
+    renderSwipeSavedNote();
     if (swipeIndex >= swipeDeals.length) {
       stack.innerHTML = `<div class="empty-state">
           <div class="es-icon">🎉</div>
