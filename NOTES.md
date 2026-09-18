@@ -217,6 +217,36 @@ to a text glyph if `window.icon` isn't there yet.
   Deliberately empty, not the deal title: the title is already adjacent visible
   text, and many photos are stock images that don't show the real venue.
 
+### Type scale (19 Sep)
+
+Six tokens on `:root`, next to the radius ones:
+
+```
+--fs-xs:12px  --fs-sm:14px  --fs-md:16px  --fs-lg:20px  --fs-xl:24px  --fs-2xl:32px
+```
+
+There were 23 distinct sizes, 11 of them between 10 and 16px. Everything rounds
+to the nearest step, ties going down so nothing grew by more than 1px. Reading
+text sits at 16px: the body default (was 15px), the deal description, and the
+How It Works body and lede.
+
+**Anything above 32px is an emoji glyph, not type, and stays a literal.** Deals
+carry an `emoji` column and fall back to it when there's no photo — 52px on a
+card, 64px on a swipe card, 80px on the detail hero. The hero headline keeps its
+`clamp()` for the same reason. The hero subheading is body copy, so its clamp
+runs between two tokens.
+
+Adding a new size means picking a token. If none of them fit, that's worth a
+conversation, not a seventh value.
+
+### Loading screen (19 Sep)
+
+Generating a plan now takes **600 ms**, not 3.3 s. `buildItinerary()` is
+synchronous, so the old five-step checklist was pure theatre — and Regenerate
+never showed it. The remaining delay is a single beat so the page change
+registers; `prefers-reduced-motion` skips even that. If you ever need the screen
+to cover real work, make it wait on the work, not on a timer.
+
 ### Responsive (19 Sep)
 
 Tested 375 / 390 / 667 / 768 / 820 / 1024 / 1280 — no horizontal overflow on any
@@ -262,21 +292,18 @@ and the root domain briefly stopped resolving. They're restored
 (`bababoo28811.github.io`) must never be removed** — the checkboxes in Namecheap's
 record list are bulk-*delete* selection, not enable toggles.
 
-### Design backlog (agreed 19 Sep, 1 of 5 done)
+### Design backlog (agreed 19 Sep, 3 of 5 done)
 
-From a design review of the running site. **#1 is done**; the rest are open and
-were all approved in principle.
+From a design review of the running site. **#1–#3 are done**; #4 and #5 are open
+and were both approved in principle.
 
 1. ~~**Emoji as icons.**~~ Done — see section 4.
-2. **The loading screen wastes 3.3 s of every plan.** `startGenerate()` steps
-   through 5 `.l-step` items at 560 ms each, then waits another 500 ms. The
-   itinerary computes instantly. The tell is that **Regenerate skips it entirely
-   and nobody misses it** — the code already proves it's unnecessary. Cut to
-   ~600 ms or drop it.
-3. **The type scale isn't a scale.** Six sizes all doing body-text work:
-   14px ×32, 13px ×25, 12px ×20, 15px ×14, 16px ×10, 11px ×8. 13 vs 14 vs 15 is
-   not a perceptible decision. Collapse to 12 / 14 / 16 / 20 / 24 / 32.
-   Mechanical change, no design risk.
+2. ~~**The loading screen wastes 3.3 s of every plan.**~~ Done — 600 ms now, and
+   the five-step checklist is gone rather than sped up (nobody reads five items
+   in 600 ms, and two of them described work that happens after the plan
+   renders). See section 4.
+3. ~~**The type scale isn't a scale.**~~ Done — six `--fs-*` tokens. See
+   section 4.
 4. **The planner asks for 7 decisions before showing anything** — budget, date,
    start time, duration, area, vibe, categories. Better shape is *show first,
    refine after*: generate on sensible defaults (tonight, 6:30pm, $70, anywhere)
@@ -338,8 +365,17 @@ what failed before reopening it.
 - **`.tl-card-img` / `.deal-img` backgrounds are hardcoded pastels** set inline
   from `d.bg`, and they do *not* flip with the theme. Icons there take a fixed
   `--pink-dark`, never `var(--text)`.
+- **A grid item's default `min-width` is `auto`,** so `1fr 1fr` tracks refuse
+  to shrink below their contents. `.input-grid` did this and the planner
+  overflowed a 375px screen by 19px — `input[type=date]` and `[type=time]` have
+  a wide intrinsic size. Use `repeat(2,minmax(0,1fr))`. Worth checking wherever
+  a grid holds an input.
+- **Buttons don't inherit `font-size`.** `.vibe-btn` had none and sat at the UA
+  default of 13.33px. Same shape as the `color` trap above: set both on any
+  button you add.
 - **Local preview:** there's no working `python` on this machine (the Microsoft
-  Store stub shadows it). Use a small Node static server. `node --check <file>`
+  Store stub shadows it). Use a small Node static server — `.claude/launch.json`
+  (gitignored, machine-specific) runs `npx serve` on :5173. `node --check <file>`
   works for JS syntax checking.
 
 ---
@@ -349,8 +385,8 @@ what failed before reopening it.
 1. **Test the signup email** (section 5). It's the last step of the launch
    blocker, and as of 19 Sep it still hasn't been done — `auth.users` is
    unchanged at 2 accounts, both confirmed, newest 15 Sep.
-2. Design backlog #2 (loading screen) and #3 (type scale) — both small and
-   agreed. #4 (planner reorder) is the big one; discuss first.
+2. Design backlog #4 (planner reorder) — the big one; discuss before building.
+   #5 (hero proof line) is a one-liner whenever you want it.
 3. Add deals outside Central.
 4. Fill in `original_price` on the percentage deals.
 5. Check the supplier dashboard and admin queue on a phone while signed in —
