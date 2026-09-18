@@ -1354,7 +1354,7 @@
 
     document.getElementById('timeline').innerHTML = budgetNote + catsNote + tlHTML +
       `<div id="travel-note">${travelSummary(stops, stops.slice(1).every(s => s.travelReal))}${overNote}${shortNote}</div>` +
-      `<div style="font-size:12px;color:var(--muted);margin-top:12px;padding-left:4px">
+      `<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:12px;padding-left:4px">
         ${icon('timer')} Stop times are estimates (60 min per deal). Travel times are for public transport or walking — check the route before you go.
       </div>`;
 
@@ -2305,7 +2305,7 @@
     if (!el) {
       el = document.createElement('div');
       el.id = 'boot-error-banner';
-      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#FDEAEA;color:#B42318;padding:10px 16px;text-align:center;font-size:13px;font-weight:600';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#FDEAEA;color:#B42318;padding:10px 16px;text-align:center;font-size:var(--fs-sm);font-weight:600';
       document.body.prepend(el);
     }
     el.textContent = msg;

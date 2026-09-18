@@ -116,7 +116,7 @@
       <div class="auth-card">
         <div class="auth-logo">
           <div class="mark"><svg viewBox="0 0 64 64"><circle cx="26" cy="32" r="18" fill="none" stroke="#E8526A" stroke-width="4"/><circle cx="40" cy="32" r="18" fill="#FF6B81"/></svg></div>
-          <div style="font-size:22px;font-weight:800;color:var(--pink)">Datify</div>
+          <div style="font-size:var(--fs-lg);font-weight:800;color:var(--pink)">Datify</div>
         </div>
         <div class="auth-title">Welcome back</div>
         <div class="auth-sub">Sign in to access your saved plans</div>
@@ -142,7 +142,7 @@
       <div class="auth-card">
         <div class="auth-logo">
           <div class="mark"><svg viewBox="0 0 64 64"><circle cx="26" cy="32" r="18" fill="none" stroke="#E8526A" stroke-width="4"/><circle cx="40" cy="32" r="18" fill="#FF6B81"/></svg></div>
-          <div style="font-size:22px;font-weight:800;color:var(--pink)">Datify</div>
+          <div style="font-size:var(--fs-lg);font-weight:800;color:var(--pink)">Datify</div>
         </div>
         <div class="auth-title">Create your account</div>
         <div class="auth-sub">Plan your first perfect date today</div>
@@ -182,7 +182,7 @@
         </div>
         <input type="range" min="0" max="200" value="70" step="5" id="budget-slider"
                oninput="document.getElementById('budget-disp').textContent='$'+this.value">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:var(--fs-xs);color:var(--muted);margin-top:8px">
           <span>$0 Free</span><span>$50 Budget</span><span>$100 Mid</span><span>$200 Premium</span>
         </div>
       </div>
@@ -269,7 +269,7 @@
       <div class="total-summary" id="total-summary"></div>
       <div id="res-extras-section" style="margin-top:32px;padding-top:28px;border-top:1px solid var(--border)">
         <div class="section-title" style="margin-bottom:6px">More deals to <span>add</span></div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:18px" id="res-extras-sub">Other deals you might like. Use Replace on a stop to swap one in.</div>
+        <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:18px" id="res-extras-sub">Other deals you might like. Use Replace on a stop to swap one in.</div>
         <div class="deals-grid" id="res-extras"></div>
       </div>
     </div>
@@ -468,7 +468,7 @@
         <div class="profile-avatar-lg" id="profile-avatar-lg">?</div>
         <div class="profile-avatar-info">
           <h2 id="profile-display-name">Loading…</h2>
-          <p id="profile-display-email" style="color:var(--muted);font-size:13px"></p>
+          <p id="profile-display-email" style="color:var(--muted);font-size:var(--fs-sm)"></p>
         </div>
       </div>
 
@@ -511,8 +511,8 @@
       <!-- Sign out -->
       <div class="profile-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
-          <div style="font-size:15px;font-weight:600">Sign out</div>
-          <div style="font-size:13px;color:var(--muted);margin-top:2px">You'll need to sign in again to access your plans.</div>
+          <div style="font-size:var(--fs-sm);font-weight:600">Sign out</div>
+          <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">You'll need to sign in again to access your plans.</div>
         </div>
         <button class="profile-danger-btn" onclick="handleLogout()">Sign out of Datify</button>
       </div>
