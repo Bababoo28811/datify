@@ -7,7 +7,10 @@
 **Supabase project ref:** `uujbonptqglzndzlovmp` (region ap-northeast-1)
 **Admin/founder account:** elisazhu.ys@gmail.com
 
-> **New session?** Read this file first, then check `git log` for anything newer than the date above.
+> **New session?** Read this file first, then check `git log` for anything newer
+> than the date above. **Where things stand:** the site is live and deployed,
+> `main` is the only branch and is in sync, and **nothing is blocking launch** —
+> signup email was the last blocker and it works (section 5). Start from section 7.
 
 ---
 
@@ -268,23 +271,50 @@ been checked on a phone** — both pages redirect when signed out.
 
 ## 5. Open items
 
-### Blocks launch
+### Nothing blocks launch any more
 
-**Email delivery — in progress, needs a live test.** Supabase's built-in mailer is
-development-only (a couple of messages an hour, shared sending domain, lands in
-spam). That's why confirmations never arrived — not a bug to work around.
+**Signup email works end to end, verified live 19 Sep.** Fresh address →
+delivered → tapped → confirmed and signed in, 15 seconds start to finish, one
+`/verify` request, no retry. `auth.users` holds 3 accounts, all confirmed.
 
-Done 19 Sep:
-- Resend account, `getdatify.com` added, region **Tokyo (ap-northeast-1)**
+The setup, for reference:
+- Resend account, `getdatify.com`, region **Tokyo (ap-northeast-1)**
 - DNS in Namecheap: DKIM `resend._domainkey`, CNAMEs `send` + `rsend`, DMARC
   `_dmarc`. All confirmed resolving from Namecheap's own nameservers.
-- Domain shows **Verified** in Resend
-- Custom SMTP saved in Supabase (`smtp.resend.com`, port 465, user `resend`)
+- Domain **Verified** in Resend
+- Custom SMTP in Supabase (`smtp.resend.com`, port 465, user `resend`)
+- **Site URL `https://getdatify.com`**, redirect allow-list `https://getdatify.com/**`
+  and `https://www.getdatify.com/**`
 
-**Still to do: sign up with a fresh address and confirm the mail arrives.** Keep
-"Confirm email" ON — turning it off is what lets people sign up with addresses
-they don't own. Then check Supabase auth logs and Resend's Logs tab. Also raise
-Supabase's auth rate limit; it stays low even after custom SMTP is attached.
+Supabase's built-in mailer was never going to work — it's development-only (a
+couple of messages an hour, shared sending domain, lands in spam). Custom SMTP
+was the fix, not a workaround.
+
+Keep **"Confirm email" ON**. Turning it off is what lets people sign up with
+addresses they don't own.
+
+**Still worth doing: raise Supabase's auth rate limit.** It stays low even after
+custom SMTP is attached, and it is not obvious from the outside — it looks like
+mail silently not arriving.
+
+#### The redirect bug, in case it comes back
+
+The first live test looked like a failure: the emailed link returned
+**"requested path is invalid"**. The mail had actually worked and the account was
+already confirmed — the logs showed `/verify` return 303, then a second tap 8
+seconds later fail with "One-time token not found" because the first tap had
+spent the token.
+
+The cause was **Site URL set to `getdatify.com` with no scheme**. That made the
+link carry `redirect_to=getdatify.com`, so the 303's `Location` was a *relative*
+path, which the browser resolved against the Supabase origin:
+`https://<ref>.supabase.co/auth/v1/getdatify.com/…`. No such route on the API,
+hence the message. Adding `https://` fixed it.
+
+Two lessons: a confirmation link that errors has often already worked — check
+`auth.users.email_confirmed_at` before assuming delivery is broken. And the
+emailed URL's `redirect_to` parameter is the fastest way to see what the Site URL
+actually is.
 
 ⚠️ While editing DNS on 19 Sep the four apex `A` records were accidentally deleted
 and the root domain briefly stopped resolving. They're restored
@@ -330,6 +360,11 @@ what failed before reopening it.
 5. **OMMA and Fireplace** have day rules but no public-holiday answers.
 6. **Deal durations** are a flat 60 min for every deal. A real `duration_mins`
    field would make plan timings honest.
+7. **`signUp()` passes no `emailRedirectTo`** (`app.js`, ~line 126), so every
+   confirmation link inherits the dashboard's Site URL silently. That one field
+   being wrong is what broke the first live test. Passing it explicitly would
+   make the app state where it wants people to land — needs the target in the
+   redirect allow-list.
 
 ### Deferred on purpose
 
@@ -373,6 +408,10 @@ what failed before reopening it.
 - **Buttons don't inherit `font-size`.** `.vibe-btn` had none and sat at the UA
   default of 13.33px. Same shape as the `color` trap above: set both on any
   button you add.
+- **A URL with no scheme is a relative path.** Supabase's Site URL was
+  `getdatify.com`, so the confirmation link's 303 `Location` resolved against the
+  Supabase origin and returned "requested path is invalid". Always `https://`.
+  Same trap anywhere a config field takes a URL.
 - **Local preview:** there's no working `python` on this machine (the Microsoft
   Store stub shadows it). Use a small Node static server — `.claude/launch.json`
   (gitignored, machine-specific) runs `npx serve` on :5173. `node --check <file>`
@@ -382,26 +421,33 @@ what failed before reopening it.
 
 ## 7. Where to pick up
 
-1. **Test the signup email** (section 5). It's the last step of the launch
-   blocker, and as of 19 Sep it still hasn't been done — `auth.users` is
-   unchanged at 2 accounts, both confirmed, newest 15 Sep.
-2. Design backlog #4 (planner reorder) — the big one; discuss before building.
-   #5 (hero proof line) is a one-liner whenever you want it.
-3. Add deals outside Central.
-4. Fill in `original_price` on the percentage deals.
-5. Check the supplier dashboard and admin queue on a phone while signed in —
-   never verified, both redirect when signed out.
+**Nothing is blocking launch.** Signup email was the last one and it works
+(section 5). What's left is inventory and polish, in rough order of value:
+
+1. **Add deals outside Central.** 19 deals, 12 Central. This is the weakest part
+   of the product and no amount of code fixes it.
+2. **Design backlog #4 (planner reorder)** — show first, refine after. The most
+   structural change left; talk it through before building.
+3. Fill in `original_price` on the 4 percentage deals, and move the Zoo's
+   WildPass condition out of its description.
+4. **Check the supplier dashboard and admin queue on a phone while signed in** —
+   never verified, both redirect when signed out. Pair this with giving
+   `css/supplier.css` the same type-token pass the customer site got: it still
+   has 38 hand-picked font sizes and its own `:root`.
+5. Raise the Supabase auth rate limit (section 5).
+6. Design backlog #5 (hero proof line) — a one-liner whenever you want it.
 
 ### Repo state at handoff (19 Sep)
 
-- **`main` is the only branch, local and remote, and they are in sync.** Everything
-  described above is on it and deployed. Cleaned up 19 Sep: PR #2 landed by pushing
-  `main` (GitHub closed it as merged), `svg-icon-system` and `design-refresh` were
-  deleted once verified merged, and **PR #1 was closed unmerged** — its NOTES.md was
-  older than what is live, so merging would have rolled the handoff backwards. Its
-  commit `6c5493c` stays reachable from the closed PR; it holds a few details this
-  file condensed away (swipe ranking weights, the planner's 15-minute retry, Replace
-  offering up to 4 alternatives, OneMap's confirm-code page).
+- **`main` is the only branch, local and remote, in sync, and deployed.**
+  Everything described above is live on GetDatify.com. Branches were cleaned up
+  19 Sep: PR #2 landed by pushing `main` (GitHub closed it as merged),
+  `svg-icon-system` and `design-refresh` were deleted once verified merged, and
+  **PR #1 was closed unmerged** — its NOTES.md was older than what is live, so
+  merging would have rolled the handoff backwards. Its commit `6c5493c` stays
+  reachable from the closed PR; it holds a few details this file condensed away
+  (swipe ranking weights, the planner's 15-minute retry, Replace offering up to 4
+  alternatives, OneMap's confirm-code page).
 - `.agents/` holds the `ui-ux-pro-max` skill used for the design review. It's
   gitignored (3.7 MB); `skills-lock.json` is committed so the version is pinned.
   Reinstall with:
