@@ -32,6 +32,7 @@ will ask directly when she's short on time.
 | `supplier-dashboard.html` + `js/supplier.js` + `css/supplier.css` | Supplier portal: add/edit deals, categories, image upload. |
 | `admin.html` + `js/admin.js` | Founder-only approval queue (shares `css/supplier.css`). |
 | `js/supabase-client.js` | Creates the `db` client. Must load before `app.js`. |
+| `js/icons.js` | Inline SVG icon set. **Generated — don't hand-edit.** See section 4. |
 | `supabase-rls-policies.sql` | Reference dump of the live RLS policies. See section 2. |
 
 The dead root files (`supplier.js`, `supabase.js`, `Claude outputs/`) were deleted
@@ -54,7 +55,6 @@ The dead root files (`supplier.js`, `supabase.js`, `Claude outputs/`) were delet
 | `profiles` | 2 | admin queue reads this for supplier emails |
 | `contact_messages` | 1 | |
 | `supplier_whitelist` | 1 | Elisa only |
-| `suppliers` | 0 | **dead, pending drop** — see section 5 |
 
 15 deals have a real price; 4 are percentage-discount offers (`price = 0` +
 `discount_label`). All 19 are geocoded and have `time_slots`.
@@ -183,6 +183,40 @@ onemap.gov.sg → Account Settings → Forget Password.
 - Admin approval queue.
 - Dark mode, hamburger-only nav, How It Works, contact form.
 
+### Icons (19 Sep)
+
+`js/icons.js` is **generated from lucide-static v1.47.0** (ISC), fetched from
+the CDN rather than typed out, so no path data is guessed. 30 icons, ~8 KB, no
+runtime dependency and no build step. To change the set, re-fetch — don't
+hand-edit the file.
+
+- `icon(name, {size, cls, label})` returns an `<svg>` string for use inside
+  template literals.
+- `hydrateIcons()` fills any `<el data-icon="name" data-icon-size="26">` in
+  static markup, so `index.html` stays declarative. It runs itself on
+  `DOMContentLoaded`.
+- Icons are `aria-hidden` by default — every one sits beside visible text that
+  already says what it means. Pass `label` only for an icon that stands alone.
+
+This replaced 32 distinct emoji (58 occurrences). Emoji render differently on
+every platform, can't inherit `currentColor`, and share no stroke weight.
+`js/theme.js` loads in `<head>` **before** `icons.js`, so its toggle falls back
+to a text glyph if `window.icon` isn't there yet.
+
+### Accessibility (19 Sep)
+
+- Focus rings restored. Every input had `outline:none` with only a pink border
+  tint, which is a colour-only cue. Now `:focus-visible` so keyboard users get a
+  2px ring and mouse clicks look unchanged.
+- Inputs moved 14px → **16px**. iOS Safari auto-zooms any field below 16px and
+  leaves the page zoomed — it affected signup, login, contact and the planner's
+  date/time pickers.
+- `prefers-reduced-motion` block at the end of `style.css`. Durations collapse
+  rather than animations being deleted, so state changes still register.
+- All deal `<img>` tags have `alt=""` plus `loading="lazy"` on the grid.
+  Deliberately empty, not the deal title: the title is already adjacent visible
+  text, and many photos are stock images that don't show the real venue.
+
 ### Responsive (19 Sep)
 
 Tested 375 / 390 / 667 / 768 / 820 / 1024 / 1280 — no horizontal overflow on any
@@ -228,25 +262,46 @@ and the root domain briefly stopped resolving. They're restored
 (`bababoo28811.github.io`) must never be removed** — the checkboxes in Namecheap's
 record list are bulk-*delete* selection, not enable toggles.
 
+### Design backlog (agreed 19 Sep, 1 of 5 done)
+
+From a design review of the running site. **#1 is done**; the rest are open and
+were all approved in principle.
+
+1. ~~**Emoji as icons.**~~ Done — see section 4.
+2. **The loading screen wastes 3.3 s of every plan.** `startGenerate()` steps
+   through 5 `.l-step` items at 560 ms each, then waits another 500 ms. The
+   itinerary computes instantly. The tell is that **Regenerate skips it entirely
+   and nobody misses it** — the code already proves it's unnecessary. Cut to
+   ~600 ms or drop it.
+3. **The type scale isn't a scale.** Six sizes all doing body-text work:
+   14px ×32, 13px ×25, 12px ×20, 15px ×14, 16px ×10, 11px ×8. 13 vs 14 vs 15 is
+   not a perceptible decision. Collapse to 12 / 14 / 16 / 20 / 24 / 32.
+   Mechanical change, no design risk.
+4. **The planner asks for 7 decisions before showing anything** — budget, date,
+   start time, duration, area, vibe, categories. Better shape is *show first,
+   refine after*: generate on sensible defaults (tonight, 6:30pm, $70, anywhere)
+   and put the controls beside the result, updating live. `buildResults()` and
+   `regeneratePlan()` already do the work; it's the order that's backwards.
+   **This is the most structural one — worth discussing before building.**
+5. **The hero leads with the weakest number.** "19 live deals · 4 categories"
+   announces how small the catalogue is, directly under a strong line. Drop the
+   count or swap it for something that is a strength.
+
+Considered and rejected: putting availability (`days` / `time_slots`) on deal
+cards. Hours chips were already tried and pulled for being cramped — understand
+what failed before reopening it.
+
 ### Next up
 
-1. **Drop the `suppliers` table.** 0 rows, no FKs, no triggers, no views, no code
-   reference. A tool safety classifier blocked the DROP on 19 Sep, so run it by
-   hand in the SQL editor:
-   ```sql
-   drop table if exists public.suppliers;
-   ```
-   Original shape if it ever needs recreating: `id uuid not null`,
-   `business_name text`, `created_at timestamptz not null default now()`.
-2. **Inventory.** 19 deals, 12 Central. "Under $15 in the East" has zero exact
+1. **Inventory.** 19 deals, 12 Central. "Under $15 in the East" has zero exact
    matches. This is content, not code.
-3. **Fill in `original_price` on the 4 percentage deals.** Without it the detail
+2. **Fill in `original_price` on the 4 percentage deals.** Without it the detail
    page can't show what "Up to 26% off" is off *of*, so it's unbudgetable.
-4. **Move the Zoo's real catch out of the description.** "Discounted admission for
+3. **Move the Zoo's real catch out of the description.** "Discounted admission for
    WildPass holders" is the actual condition and it's buried in prose.
-5. **Public holidays run out after 2027.** MOM publishes the next year around June.
-6. **OMMA and Fireplace** have day rules but no public-holiday answers.
-7. **Deal durations** are a flat 60 min for every deal. A real `duration_mins`
+4. **Public holidays run out after 2027.** MOM publishes the next year around June.
+5. **OMMA and Fireplace** have day rules but no public-holiday answers.
+6. **Deal durations** are a flat 60 min for every deal. A real `duration_mins`
    field would make plan timings honest.
 
 ### Deferred on purpose
@@ -275,6 +330,14 @@ record list are bulk-*delete* selection, not enable toggles.
   scroll bugs there are invisible. Test at 375×667.
 - **Percentage deals have `price = 0`.** Anything that buckets or sums by price
   must check `hasFixedPrice(d)` first, or they read as free/cheapest.
+- **An element with no `color` renders SVG icons black.** Emoji carried their own
+  colour, so several containers never needed `color` and didn't set one. The
+  moment icons started inheriting `currentColor` they fell back to the UA default
+  — invisible on the dark theme. Hit `.theme-toggle` and `.vibe-btn`. When adding
+  an icon somewhere new, check the container sets a colour.
+- **`.tl-card-img` / `.deal-img` backgrounds are hardcoded pastels** set inline
+  from `d.bg`, and they do *not* flip with the theme. Icons there take a fixed
+  `--pink-dark`, never `var(--text)`.
 - **Local preview:** there's no working `python` on this machine (the Microsoft
   Store stub shadows it). Use a small Node static server. `node --check <file>`
   works for JS syntax checking.
@@ -283,8 +346,28 @@ record list are bulk-*delete* selection, not enable toggles.
 
 ## 7. Where to pick up
 
-1. **Test the signup email** (section 5). It's the last step of the launch blocker.
-2. Drop the `suppliers` table — one line in the SQL editor.
+1. **Test the signup email** (section 5). It's the last step of the launch
+   blocker, and as of 19 Sep it still hasn't been done — `auth.users` is
+   unchanged at 2 accounts, both confirmed, newest 15 Sep.
+2. Design backlog #2 (loading screen) and #3 (type scale) — both small and
+   agreed. #4 (planner reorder) is the big one; discuss first.
 3. Add deals outside Central.
 4. Fill in `original_price` on the percentage deals.
-5. Check the supplier dashboard and admin queue on a phone while signed in.
+5. Check the supplier dashboard and admin queue on a phone while signed in —
+   never verified, both redirect when signed out.
+
+### Repo state at handoff (19 Sep)
+
+- `main` carries everything except the icon commit, which is on
+  `svg-icon-system` behind **PR #2**. Merge or push `main` directly; either works.
+- `update-notes-18-sep` (PR #1) is **superseded** — its NOTES.md changes are
+  already on `main`. Safe to close and delete.
+- `design-refresh` is fully merged. Safe to delete.
+- `.agents/` holds the `ui-ux-pro-max` skill used for the design review. It's
+  gitignored (3.7 MB); `skills-lock.json` is committed so the version is pinned.
+  Reinstall with:
+  ```
+  npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max
+  ```
+  Its `search.py` needs Python, which doesn't work on this machine — read the
+  CSVs in `.agents/skills/ui-ux-pro-max/data/` directly instead.
