@@ -996,29 +996,29 @@
   // ============================================================
   // PLANNER → LOADING → RESULTS
   // ============================================================
+  // buildItinerary() is synchronous and returns instantly, so this delay is a
+  // beat to let the page change register — not work being waited on. It used to
+  // walk a five-item checklist at 560ms a step, 3.3s before anyone saw a plan,
+  // for claims the code wasn't making: real travel times arrive from OneMap
+  // after the plan renders, not here. Regenerate has always gone straight to
+  // the result, which is the proof none of it was needed.
+  const GENERATE_BEAT_MS = 600;
+  let generateTimer = null;
+
   function startGenerate() {
     go('loading');
-    let step = 0;
-    const steps = document.querySelectorAll('.l-step');
-    steps.forEach(s => s.classList.remove('done', 'active'));
-    steps[0].classList.add('active');
-    const iv = setInterval(() => {
-      steps[step].classList.remove('active');
-      steps[step].classList.add('done');
-      step++;
-      if (step < steps.length) {
-        steps[step].classList.add('active');
-      } else {
-        clearInterval(iv);
-        setTimeout(() => {
-          const pin = PINNED_DEAL;
-          PINNED_DEAL = null;
-          renderPinBanner();
-          buildResults(pin ? { pin } : {});
-          go('results');
-        }, 500);
-      }
-    }, 560);
+    clearTimeout(generateTimer);
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    generateTimer = setTimeout(() => {
+      // Don't yank them back if they navigated away while the beat ran.
+      const loading = document.getElementById('page-loading');
+      if (!loading || !loading.classList.contains('active')) return;
+      const pin = PINNED_DEAL;
+      PINNED_DEAL = null;
+      renderPinBanner();
+      buildResults(pin ? { pin } : {});
+      go('results');
+    }, reduced ? 0 : GENERATE_BEAT_MS);
   }
 
   // ============================================================
