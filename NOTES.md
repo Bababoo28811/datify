@@ -358,11 +358,14 @@ what failed before reopening it.
 
 ### Repo state at handoff (19 Sep)
 
-- `main` carries everything except the icon commit, which is on
-  `svg-icon-system` behind **PR #2**. Merge or push `main` directly; either works.
-- `update-notes-18-sep` (PR #1) is **superseded** — its NOTES.md changes are
-  already on `main`. Safe to close and delete.
-- `design-refresh` is fully merged. Safe to delete.
+- **`main` is the only branch, local and remote, and they are in sync.** Everything
+  described above is on it and deployed. Cleaned up 19 Sep: PR #2 landed by pushing
+  `main` (GitHub closed it as merged), `svg-icon-system` and `design-refresh` were
+  deleted once verified merged, and **PR #1 was closed unmerged** — its NOTES.md was
+  older than what is live, so merging would have rolled the handoff backwards. Its
+  commit `6c5493c` stays reachable from the closed PR; it holds a few details this
+  file condensed away (swipe ranking weights, the planner's 15-minute retry, Replace
+  offering up to 4 alternatives, OneMap's confirm-code page).
 - `.agents/` holds the `ui-ux-pro-max` skill used for the design review. It's
   gitignored (3.7 MB); `skills-lock.json` is committed so the version is pinned.
   Reinstall with:
