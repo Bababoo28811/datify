@@ -250,6 +250,47 @@ never showed it. The remaining delay is a single beat so the page change
 registers; `prefers-reduced-motion` skips even that. If you ever need the screen
 to cover real work, make it wait on the work, not on a timer.
 
+### Icons, favicon and link previews (19 Sep)
+
+The site had one `<link rel="icon">` pointing at an SVG and **nothing else** — no
+`favicon.ico`, no `apple-touch-icon`, no Open Graph tags, no `meta description`.
+A shared link was a bare URL with no image or title anywhere.
+
+| File | What uses it |
+|---|---|
+| `assets/img/logo-mark.svg` | modern browsers' tab icon |
+| `favicon.ico` (root, 48px) | Safari, and what crawlers probe for |
+| `assets/img/icon-192.png` | `rel=icon` PNG fallback |
+| `apple-touch-icon.png` (root, 180px) | iOS home screen — **needs a solid background**, iOS renders transparency as black |
+| `assets/img/og-image.jpg` | `og:image`, 1200×630 |
+
+`logo-mark.svg` was 7973 bytes, of which 7736 was C2PA metadata from whatever
+exported it. It's 191 bytes now, and its viewBox is `6 6 52 52` rather than
+`0 0 64 64` — the art only spans x 6–58 / y 12–52, so the old box left the mark
+floating small at favicon sizes.
+
+**og:image and twitter:image must be absolute URLs.** Relative ones are silently
+ignored, which looks identical to having no tag at all.
+
+The PNGs were rendered by drawing the two circles onto a canvas in the browser —
+there's no ImageMagick on this machine, and `convert` on PATH is *Windows' disk
+conversion tool*, not ImageMagick. To redo them, the generator is a throwaway
+script; the drawing is ~20 lines of canvas calls.
+
+A first pass wrote og-image as PNG at 470 KB. As JPEG q0.92 it's 44 KB and looks
+the same — the radial gradient is what PNG can't compress.
+
+`admin.html` and `supplier-dashboard.html` get `noindex, nofollow` plus the
+icons. They're login-gated and have nothing to index.
+
+**Google re-crawls favicons on its own schedule — expect days or weeks, not
+minutes.** Link previews (WhatsApp, iMessage, Slack) update as soon as their
+cache expires, and can be forced with Facebook's Sharing Debugger.
+
+The `<title>` is still "Datify — Plan the Perfect Date" while `og:title` says
+"Real date deals in Singapore". Deliberate — the title is what Google shows —
+but worth a look if you want them to match.
+
 ### Responsive (19 Sep)
 
 Tested 375 / 390 / 667 / 768 / 820 / 1024 / 1280 — no horizontal overflow on any

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# The portal pages need a login and have nothing for a crawler to index.
+Disallow: /admin.html
+Disallow: /supplier-dashboard.html
+
+Sitemap: https://getdatify.com/sitemap.xml
