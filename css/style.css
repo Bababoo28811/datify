@@ -187,10 +187,13 @@
     .deal-body{padding:16px}
     .deal-name{font-size:15px;font-weight:700;margin-bottom:4px;line-height:1.35}
     .deal-loc{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;margin-bottom:10px}
-    .deal-footer{display:flex;align-items:center;justify-content:space-between}
-    .deal-price{font-size:18px;font-weight:800;color:var(--text)}
+    /* Wraps instead of squeezing: a numeric price ($25.00) and a worded
+       discount label ("Up to 26% off") take very different widths, and the
+       button needs to stay a full tap target either way rather than shrink. */
+    .deal-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 10px}
+    .deal-price{font-size:18px;font-weight:800;color:var(--text);flex:1 1 auto;min-width:0}
     .deal-price span{font-size:12px;font-weight:400;color:var(--muted)}
-    .deal-cta{background:var(--pink-light);color:var(--pink);border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+    .deal-cta{background:var(--pink-light);color:var(--pink);border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s;flex-shrink:0;white-space:nowrap}
     .deal-cta:hover{background:var(--pink);color:var(--on-accent)}
 
     /* VIBES */
