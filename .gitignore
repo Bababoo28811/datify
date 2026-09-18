@@ -1,0 +1,7 @@
+# Vendored agent skills. Restore with:
+#   npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max
+# skills-lock.json is committed so the version stays pinned.
+.agents/
+
+# Local preview config (paths are machine-specific)
+.claude/launch.json

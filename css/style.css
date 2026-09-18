@@ -117,9 +117,10 @@
     .profile-field label{display:block;font-size:12px;font-weight:700;color:var(--muted);
                          text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px}
     .profile-field input{width:100%;padding:11px 14px;border:1.5px solid var(--border);
-                          border-radius:12px;font-size:14px;font-family:'Inter',sans-serif;
-                          background:var(--bg);color:var(--text);outline:none;transition:border-color 0.15s}
-    .profile-field input:focus{border-color:var(--pink)}
+                          border-radius:12px;font-size:16px;font-family:'Inter',sans-serif;
+                          background:var(--bg);color:var(--text);transition:border-color 0.15s}
+    .profile-field input:focus-visible{border-color:var(--pink);outline:2px solid var(--pink);outline-offset:2px}
+    .profile-field input:focus:not(:focus-visible){outline:none;border-color:var(--pink)}
     .profile-field input[readonly]{background:var(--bg);color:var(--muted);cursor:not-allowed}
     .profile-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .profile-save-btn{padding:12px 28px;border-radius:12px;font-size:14px;font-weight:700;
@@ -230,8 +231,12 @@
     .divider-row::before,.divider-row::after{content:'';flex:1;height:1px;background:var(--border)}
     .form-group{margin-bottom:16px}
     .form-label{font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:6px}
-    .form-input{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);outline:none;transition:border-color 0.15s}
-    .form-input:focus{border-color:var(--pink)}
+    /* 16px, not 14: iOS Safari auto-zooms any field below 16px and leaves the
+       page zoomed. Focus ring is :focus-visible so keyboard users get a clear
+       indicator while mouse clicks look exactly as before. */
+    .form-input{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:16px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);transition:border-color 0.15s}
+    .form-input:focus-visible{border-color:var(--pink);outline:2px solid var(--pink);outline-offset:2px}
+    .form-input:focus:not(:focus-visible){outline:none;border-color:var(--pink)}
     .form-row{display:flex;gap:12px}
     .form-row .form-group{flex:1}
     .btn-full{width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:var(--pink);color:var(--on-accent);font-family:'Inter',sans-serif;transition:all 0.18s;margin-top:4px}
@@ -256,11 +261,14 @@
     .budget-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .budget-amount{font-size:28px;font-weight:800;color:var(--pink)}
     .budget-max{font-size:13px;color:var(--muted)}
-    input[type=range]{-webkit-appearance:none;width:100%;height:6px;background:var(--peach);border-radius:99px;outline:none;border:none!important;padding:0!important}
+    input[type=range]{-webkit-appearance:none;width:100%;height:6px;background:var(--peach);border-radius:99px;border:none!important;padding:0!important}
+    input[type=range]:focus-visible{outline:2px solid var(--pink);outline-offset:4px}
+    input[type=range]:focus:not(:focus-visible){outline:none}
     input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;background:var(--pink);border-radius:50%;cursor:pointer;border:3px solid white;box-shadow:0 2px 10px rgba(255,107,129,0.4)}
     .input-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    select,input[type=date],input[type=time]{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);outline:none;appearance:none;-webkit-appearance:none;transition:border-color 0.15s}
-    select:focus,input[type=date]:focus,input[type=time]:focus{border-color:var(--pink)}
+    select,input[type=date],input[type=time]{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:16px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);appearance:none;-webkit-appearance:none;transition:border-color 0.15s}
+    select:focus-visible,input[type=date]:focus-visible,input[type=time]:focus-visible{border-color:var(--pink);outline:2px solid var(--pink);outline-offset:2px}
+    select:focus:not(:focus-visible),input[type=date]:focus:not(:focus-visible),input[type=time]:focus:not(:focus-visible){outline:none;border-color:var(--pink)}
     .chips-row{display:flex;gap:10px;flex-wrap:wrap}
     .chip{padding:9px 18px;border-radius:100px;border:1.5px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:var(--white);color:var(--muted);transition:all 0.18s;display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif}
     .chip:hover{border-color:var(--pink);color:var(--pink)}
@@ -558,3 +566,24 @@
     .contact-tab-btn{padding:10px 18px;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
     .contact-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink)}
     .contact-form textarea.form-input{resize:vertical;font-family:'Inter',sans-serif}
+
+    /* ============================================================
+       REDUCED MOTION
+       Honours the OS-level "reduce motion" setting. Last in the file so it
+       wins over the transitions and animations declared above.
+       Motion isn't removed outright — durations collapse to near-zero so
+       state changes still register, they just don't travel. The swipe card
+       still leaves the deck, it simply doesn't fly.
+       ============================================================ */
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{
+        animation-duration:0.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:0.01ms !important;
+        scroll-behavior:auto !important;
+      }
+      /* go() and the plan page call scrollTo({behavior:'smooth'}) directly */
+      html{scroll-behavior:auto !important}
+      /* The loading screen's stepped animation is decorative; hold it still. */
+      .l-step{transition:none !important}
+    }

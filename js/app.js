@@ -1283,7 +1283,7 @@
       total += s.price;
       const typeClass = s.type === 'food' ? 'food' : s.type === 'drinks' ? 'drinks' : 'activity';
       const thumb = s.image
-        ? `<img src="${escHtmlApp(s.image)}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`
+        ? `<img src="${escHtmlApp(s.image)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`
         : s.emoji;
       if (i > 0 && s.travelBefore && s.travelBefore.mode !== 'none') {
         tlHTML += `<div class="travel-seg"><div class="travel-line"></div><div class="travel-pill">${travelLabel(s.travelBefore, !s.travelReal)}</div><div class="travel-line"></div></div>`;
@@ -1637,7 +1637,7 @@
   // ============================================================
   function dealCardHTML(d) {
     const media = d.image
-      ? `<img src="${escHtmlApp(d.image)}" style="width:100%;height:100%;object-fit:cover">`
+      ? `<img src="${escHtmlApp(d.image)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
       : `<span style="font-size:52px">${d.emoji}</span>`;
     const savedCls = SAVED_DEAL_IDS.has(d.id) ? ' saved' : '';
     return `
@@ -1710,7 +1710,7 @@
     const heroEl = document.getElementById('detail-img');
     heroEl.style.background = d.bg;
     heroEl.innerHTML = d.image
-      ? `<img src="${escHtmlApp(d.image)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0"><div class="detail-tags" id="detail-tags" style="position:relative;z-index:1"></div>`
+      ? `<img src="${escHtmlApp(d.image)}" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0"><div class="detail-tags" id="detail-tags" style="position:relative;z-index:1"></div>`
       : `<span style="font-size:80px">${d.emoji}</span><div class="detail-tags" id="detail-tags"></div>`;
     document.getElementById('detail-tags').innerHTML =
       d.tags.map(t => `<span class="deal-tag ${t==='Romantic'||t==='Premium'?'pink':''}">${escHtmlApp(t)}</span>`).join('');
@@ -1964,7 +1964,7 @@
         </div>`;
       }
       const media = d.image
-        ? `<img src="${escHtmlApp(d.image)}" draggable="false" style="width:100%;height:100%;object-fit:cover">`
+        ? `<img src="${escHtmlApp(d.image)}" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover">`
         : `<span style="font-size:64px">${d.emoji}</span>`;
       const note = d.stretchNote ? `<div class="swipe-stretch-note">${escHtmlApp(d.stretchNote)}</div>` : '';
       return `
