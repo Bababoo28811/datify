@@ -80,7 +80,7 @@
     const link = document.createElement('button');
     link.className = 'nav-link nav-supplier-link';
     link.id = 'nav-supplier-link';
-    link.textContent = '🏪 Supplier Dashboard';
+    link.innerHTML = icon('store') + ' Supplier Dashboard';
     link.onclick = () => { window.location.href = 'supplier-dashboard.html'; };
     const authArea = menu.querySelector('.nav-mobile-auth');
     menu.insertBefore(link, authArea || null);
@@ -329,7 +329,7 @@
         isFree: true,
         image: f.image_url || null,
         bg: '#F1F5F9',
-        emoji: '🚶'
+        emoji: icon('footprints', {size:28})
       }));
 
       CATEGORIES = catRes.data || [];
@@ -385,7 +385,7 @@
         dur: 60,
         image: r.image_url || null,
         bg: '#FFF0F2',
-        emoji: '🎁'
+        emoji: icon('gift', {size:28})
       }));
     } catch (err) {
       console.error('Failed to load deals:', err);
@@ -1126,7 +1126,7 @@
     const d = PINNED_DEAL && DEALS.find(x => x.id === PINNED_DEAL);
     if (!d) { el.style.display = 'none'; el.innerHTML = ''; return; }
     const note = whenNote(d);
-    el.innerHTML = `<span>📌 Planning around <strong>${escHtmlApp(d.name)}</strong>${note ? ` <span class="pin-note">(${escHtmlApp(note)})</span>` : ''}</span>
+    el.innerHTML = `<span>${icon('pin')} Planning around <strong>${escHtmlApp(d.name)}</strong>${note ? ` <span class="pin-note">(${escHtmlApp(note)})</span>` : ''}</span>
       <button class="pin-clear" onclick="clearPin()" aria-label="Stop planning around this deal">✕</button>`;
     el.style.display = '';
   }
@@ -1264,7 +1264,7 @@
     if (stops.length === 0) {
       document.getElementById('timeline').innerHTML = `
         <div class="empty-state">
-          <div class="es-icon">🗓</div>
+          <div class="es-icon">${icon('calendar', {size:32})}</div>
           <h3>Nothing left in this plan</h3>
           <p>Build a fresh one with the same settings, or change them.</p>
           <button class="btn-pink" onclick="regeneratePlan()">Build a new plan</button>
@@ -1296,10 +1296,10 @@
             <div class="tl-card-body">
               <span class="tl-badge ${typeClass}">${escHtmlApp(s.categoryName)}</span>
               <div class="tl-name">${escHtmlApp(s.name)}</div>
-              <div class="tl-loc">📍 ${escHtmlApp(s.location)}</div>
+              <div class="tl-loc">${icon('map-pin')} ${escHtmlApp(s.location)}</div>
               <div class="tl-times">
-                <div class="tl-time-chip">▶ ${startStr}</div>
-                <div class="tl-time-chip">■ ${endStr} (est.)</div>
+                <div class="tl-time-chip">${icon('play')} ${startStr}</div>
+                <div class="tl-time-chip">${icon('square')} ${endStr} (est.)</div>
               </div>
             </div>
             <div class="tl-price-col">
@@ -1322,7 +1322,7 @@
     const lastEnd = stops[stops.length - 1].startAt + stops[stops.length - 1].dur;
     const over = lastEnd - endMins;
     const overNote = over > 10
-      ? `<div class="travel-warn">⏱ This plan runs about ${over} min past your end time. Remove a stop to fit.</div>` : '';
+      ? `<div class="travel-warn">${icon('timer')} This plan runs about ${over} min past your end time. Remove a stop to fit.</div>` : '';
 
     // Suggestions have to be things you could actually add to THIS plan:
     // inside what's left of the budget, and open at some point in the window.
@@ -1345,7 +1345,7 @@
     // options. Say which, rather than quietly handing back a shorter date.
     const under = endMins - lastEnd;
     const shortNote = (over <= 10 && under >= 30)
-      ? `<div class="travel-ok">🕐 This plan ends about ${under} min early. ${
+      ? `<div class="travel-ok">${icon('clock')} This plan ends about ${under} min early. ${
           extras.length
             ? 'Add one of the deals below to fill it.'
             : `Nothing else fits ${money(budgetLeft)} and the time left.`
@@ -1355,17 +1355,17 @@
     document.getElementById('timeline').innerHTML = budgetNote + catsNote + tlHTML +
       `<div id="travel-note">${travelSummary(stops, stops.slice(1).every(s => s.travelReal))}${overNote}${shortNote}</div>` +
       `<div style="font-size:12px;color:var(--muted);margin-top:12px;padding-left:4px">
-        ⏱ Stop times are estimates (60 min per deal). Travel times are for public transport or walking — check the route before you go.
+        ${icon('timer')} Stop times are estimates (60 min per deal). Travel times are for public transport or walking — check the route before you go.
       </div>`;
 
     const totalMins = lastEnd - startMins;
     const durStr = `${Math.floor(totalMins / 60)}h${totalMins % 60 ? ' ' + (totalMins % 60) + 'm' : ''}`;
     const stopWord = stops.length === 1 ? 'stop' : 'stops';
     document.getElementById('res-pills').innerHTML = `
-      <div class="r-pill">📍 ${stops.length} ${stopWord}</div>
-      <div class="r-pill">💰 ${money(total)} total${stops.some(x => x.discountLabel) ? ' + discount paid at venue' : ''}</div>
-      <div class="r-pill">🕐 ${durStr}</div>
-      <div class="r-pill">📍 ${escHtmlApp(locLabel)}</div>`;
+      <div class="r-pill">${icon('map-pin')} ${stops.length} ${stopWord}</div>
+      <div class="r-pill">${icon('wallet')} ${money(total)} total${stops.some(x => x.discountLabel) ? ' + discount paid at venue' : ''}</div>
+      <div class="r-pill">${icon('clock')} ${durStr}</div>
+      <div class="r-pill">${icon('map-pin')} ${escHtmlApp(locLabel)}</div>`;
 
     const saved = !!p.savedId;
     document.getElementById('total-summary').innerHTML = `
@@ -1392,8 +1392,8 @@
   function travelLabel(t, estimated) {
     const approx = estimated ? '~' : '';
     return t.mode === 'walk'
-      ? `🚶 ${approx}${t.minutes} min walk`
-      : `🚇 ${approx}${t.minutes} min by MRT/bus`;
+      ? `${icon('footprints')} ${approx}${t.minutes} min walk`
+      : `${icon('train-front')} ${approx}${t.minutes} min by MRT/bus`;
   }
 
   // One line under the plan about the longest trip between stops.
@@ -1405,10 +1405,10 @@
     const worst = hops.slice().sort((a, b) => b.t.minutes - a.t.minutes)[0];
     const approx = fromOneMap ? '' : 'about ';
     if (worst.t.minutes >= 35) {
-      return `<div class="travel-warn">⚠ Longest trip: <strong>${escHtmlApp(worst.from)}</strong> to <strong>${escHtmlApp(worst.to)}</strong> takes ${approx}${worst.t.minutes} min by MRT/bus. Swap one out for something closer if that's too far.</div>`;
+      return `<div class="travel-warn">${icon('triangle-alert')} Longest trip: <strong>${escHtmlApp(worst.from)}</strong> to <strong>${escHtmlApp(worst.to)}</strong> takes ${approx}${worst.t.minutes} min by MRT/bus. Swap one out for something closer if that's too far.</div>`;
     }
     const allWalk = hops.every(h => h.t.mode === 'walk');
-    return `<div class="travel-ok">📍 ${allWalk ? 'Everything is walkable' : 'Longest trip between stops is ' + approx + worst.t.minutes + ' min'}${allWalk ? ` — the furthest is ${approx}${worst.t.minutes} min on foot` : ' by MRT/bus'}.</div>`;
+    return `<div class="travel-ok">${icon('map-pin')} ${allWalk ? 'Everything is walkable' : 'Longest trip between stops is ' + approx + worst.t.minutes + ' min'}${allWalk ? ` — the furthest is ${approx}${worst.t.minutes} min on foot` : ' by MRT/bus'}.</div>`;
   }
 
   // Ask OneMap (via our travel-time function) for real public-transport
@@ -1651,7 +1651,7 @@
         </div>
         <div class="deal-body">
           <div class="deal-name">${escHtmlApp(d.name)}</div>
-          <div class="deal-loc">📍 ${escHtmlApp(d.location)}</div>
+          <div class="deal-loc">${icon('map-pin')} ${escHtmlApp(d.location)}</div>
           <div class="deal-footer">
             <div class="deal-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? '<span>Free</span>' : `${money(d.price)}<span>${priceUnitLabel(d).startsWith('/') ? '' : ' '}${priceUnitLabel(d)}</span>`)}${d.originalPrice ? ` <span class="deal-price-was">${money(d.originalPrice)}</span>` : ''}</div>
             <button class="deal-cta" onclick="event.stopPropagation();addToPlan('${d.id}')">Add to plan</button>
@@ -1663,7 +1663,7 @@
   function buildHomeTrending() {
     const el = document.getElementById('home-trending');
     if (DEALS.length === 0) {
-      el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🍽</div><h3>No deals yet</h3><p>Check back soon — suppliers are adding deals.</p></div>`;
+      el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">${icon('utensils', {size:32})}</div><h3>No deals yet</h3><p>Check back soon — suppliers are adding deals.</p></div>`;
       return;
     }
     el.innerHTML = DEALS.slice(0, 4).map(d => dealCardHTML(d)).join('');
@@ -1686,7 +1686,7 @@
       : '';
     el.innerHTML = filtered.length
       ? note + filtered.map(d => dealCardHTML(d)).join('')
-      : `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🔍</div><h3>No deals match</h3><p>Try a different filter.</p></div>`;
+      : `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">${icon('search', {size:32})}</div><h3>No deals match</h3><p>Try a different filter.</p></div>`;
   }
 
   function filterDeals(cat, btn) {
@@ -1717,7 +1717,7 @@
     document.getElementById('detail-main').innerHTML = `
       <div class="detail-info">
         <h1>${escHtmlApp(d.name)}</h1>
-        <div class="detail-loc">📍 ${escHtmlApp(d.location)}</div>
+        <div class="detail-loc">${icon('map-pin')} ${escHtmlApp(d.location)}</div>
         <p class="detail-desc">${escHtmlApp(d.desc)}</p>
         <div class="detail-meta-grid">
           <div class="detail-meta-item"><div class="detail-meta-label">Category</div><div class="detail-meta-val">${escHtmlApp(d.categoryName)}</div></div>
@@ -1726,7 +1726,7 @@
           <div class="detail-meta-item"><div class="detail-meta-label">Location</div><div class="detail-meta-val">${escHtmlApp(d.location)}</div></div>
         </div>
         ${d.imageIsStock ? `<p class="detail-source">Photo is a stock image for illustration — not a photo of this venue.</p>` : ''}
-        ${d.sourceUrl ? `<p class="detail-source">Deal details via <a href="${escHtmlApp(d.sourceUrl)}" target="_blank" rel="noopener noreferrer">the original listing ↗</a>. Always check current terms with the merchant before you go.</p>` : ''}
+        ${d.sourceUrl ? `<p class="detail-source">Deal details via <a href="${escHtmlApp(d.sourceUrl)}" target="_blank" rel="noopener noreferrer">the original listing ${icon('arrow-up-right', {size:13})}</a>. Always check current terms with the merchant before you go.</p>` : ''}
       </div>
       <div class="detail-sidebar">
         <div class="sidebar-price">${priceLabel(d)}</div>
@@ -1759,7 +1759,7 @@
     el.innerHTML = saved.length
       ? guestBanner + `<div class="deals-grid">${saved.map(d => dealCardHTML(d)).join('')}</div>`
       : `<div class="empty-state">
-          <div class="es-icon">🤍</div>
+          <div class="es-icon">${icon('heart', {size:32})}</div>
           <h3>No shortlisted deals yet</h3>
           <p>Heart a deal on Explore, or try Swipe to build your shortlist. No account needed.</p>
           <button class="btn-pink" onclick="go('swipe')">Try Swipe →</button>
@@ -1772,7 +1772,7 @@
     if (savedPlans.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
-          <div class="es-icon">🗓</div>
+          <div class="es-icon">${icon('calendar', {size:32})}</div>
           <h3>No saved plans yet</h3>
           <p>Generate a date plan and save it here for easy access.</p>
           <button class="btn-pink" onclick="go('planner')">Plan your first date →</button>
@@ -1789,10 +1789,10 @@
       const n = (p.plan?.stops || []).length;
       return `
         <div class="saved-plan-card" onclick="openSavedPlan('${escHtmlApp(String(p.id))}')">
-          <div class="spc-icon">❤️</div>
+          <div class="spc-icon">${icon('heart', {size:20})}</div>
           <div class="spc-body">
             <div class="spc-name">${escHtmlApp(p.name)}</div>
-            <div class="spc-meta"><span>📅 ${escHtmlApp(when)}</span><span>🛑 ${n} ${n === 1 ? 'stop' : 'stops'}</span></div>
+            <div class="spc-meta"><span>${icon('calendar')} ${escHtmlApp(when)}</span><span>${icon('map-pin')} ${n} ${n === 1 ? 'stop' : 'stops'}</span></div>
           </div>
           <div class="spc-right">
             <div class="spc-cost">${money(p.total)}</div>
@@ -1934,7 +1934,7 @@
     renderSwipeSavedNote();
     if (swipeIndex >= swipeDeals.length) {
       stack.innerHTML = `<div class="empty-state">
-          <div class="es-icon">🎉</div>
+          <div class="es-icon">${icon('party-popper', {size:32})}</div>
           <h3>That's everything for now</h3>
           <p>Check back later for new deals, or view what you've shortlisted.</p>
           <button class="btn-pink" onclick="go('saved')">View Saved →</button>
@@ -1956,7 +1956,7 @@
         return `
         <div class="swipe-card swipe-divider${isTop ? ' swipe-card-top' : ''}" id="${idAttr}">
           <div class="swipe-divider-inner">
-            <div class="es-icon">🧭</div>
+            <div class="es-icon">${icon('compass', {size:32})}</div>
             <h3>${head}</h3>
             <p>Here's what's close if you stretch a bit. Swipe either way to keep going.</p>
             <button class="btn-outline" onclick="event.stopPropagation();showSwipeSetup()" onpointerdown="event.stopPropagation()">Change filters</button>
@@ -1973,7 +1973,7 @@
           ${note}
           <div class="swipe-card-info">
             <div class="swipe-card-name">${escHtmlApp(d.name)}</div>
-            <div class="swipe-card-loc">📍 ${escHtmlApp(d.location)}</div>
+            <div class="swipe-card-loc">${icon('map-pin')} ${escHtmlApp(d.location)}</div>
             <div class="swipe-card-price">${d.discountLabel ? escHtmlApp(d.discountLabel) : (d.price === 0 ? 'Free' : priceWithUnit(d))}</div>
           </div>
         </div>`;

@@ -32,7 +32,7 @@
       <button class="nav-link"        data-page="contact" onclick="go('contact')">Contact</button>
     </div>
     <div class="nav-right">
-      <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+      <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode"></button>
       <span id="nav-auth-area">
         <button class="btn-ghost" onclick="go('login')">Sign in</button>
         <button class="btn-pink"  onclick="go('signup')">Join free</button>
@@ -215,20 +215,20 @@
       <div class="planner-card">
         <h3><span class="step-badge">3</span> Choose your vibe</h3>
         <div class="vibes-grid" id="vibe-grid">
-          <button class="vibe-btn sel" data-vibe="romantic"    onclick="pickVibe(this)"><span class="ve">🌹</span><span class="vn">Romantic</span><div class="vd">Candlelit &amp; intimate</div></button>
-          <button class="vibe-btn"    data-vibe="fun"          onclick="pickVibe(this)"><span class="ve">🎉</span><span class="vn">Fun</span><div class="vd">Playful &amp; lively</div></button>
-          <button class="vibe-btn"    data-vibe="adventurous"  onclick="pickVibe(this)"><span class="ve">🧗</span><span class="vn">Adventurous</span><div class="vd">Bold &amp; exciting</div></button>
-          <button class="vibe-btn"    data-vibe="chill"        onclick="pickVibe(this)"><span class="ve">☕</span><span class="vn">Chill</span><div class="vd">Cozy &amp; relaxed</div></button>
-          <button class="vibe-btn"    data-vibe="foodie"       onclick="pickVibe(this)"><span class="ve">🍜</span><span class="vn">Foodie</span><div class="vd">All about the food</div></button>
+          <button class="vibe-btn sel" data-vibe="romantic"    onclick="pickVibe(this)"><span class="ve" data-icon="flower-2" data-icon-size="26"></span><span class="vn">Romantic</span><div class="vd">Candlelit &amp; intimate</div></button>
+          <button class="vibe-btn"    data-vibe="fun"          onclick="pickVibe(this)"><span class="ve" data-icon="party-popper" data-icon-size="26"></span><span class="vn">Fun</span><div class="vd">Playful &amp; lively</div></button>
+          <button class="vibe-btn"    data-vibe="adventurous"  onclick="pickVibe(this)"><span class="ve" data-icon="mountain" data-icon-size="26"></span><span class="vn">Adventurous</span><div class="vd">Bold &amp; exciting</div></button>
+          <button class="vibe-btn"    data-vibe="chill"        onclick="pickVibe(this)"><span class="ve" data-icon="coffee" data-icon-size="26"></span><span class="vn">Chill</span><div class="vd">Cozy &amp; relaxed</div></button>
+          <button class="vibe-btn"    data-vibe="foodie"       onclick="pickVibe(this)"><span class="ve" data-icon="chef-hat" data-icon-size="26"></span><span class="vn">Foodie</span><div class="vd">All about the food</div></button>
         </div>
       </div>
       <div class="planner-card">
         <h3><span class="step-badge">4</span> What to include?</h3>
         <div class="chips-row" id="include-chips">
-          <button class="chip on" data-cat="dining"     onclick="toggleInclude(this)">🍽 Food</button>
-          <button class="chip on" data-cat="activities" onclick="toggleInclude(this)">🎭 Activities</button>
-          <button class="chip on" data-cat="drinks"     onclick="toggleInclude(this)">🍹 Drinks</button>
-          <button class="chip on" data-cat="outdoor"    onclick="toggleInclude(this)">🌿 Outdoor</button>
+          <button class="chip on" data-cat="dining"     onclick="toggleInclude(this)" data-icon="utensils">Food</button>
+          <button class="chip on" data-cat="activities" onclick="toggleInclude(this)" data-icon="ticket">Activities</button>
+          <button class="chip on" data-cat="drinks"     onclick="toggleInclude(this)" data-icon="martini">Drinks</button>
+          <button class="chip on" data-cat="outdoor"    onclick="toggleInclude(this)" data-icon="trees">Outdoor</button>
         </div>
       </div>
       <button class="generate-btn" onclick="startGenerate()">
@@ -241,7 +241,7 @@
   <!-- LOADING -->
   <div id="page-loading" class="page">
     <div class="loading-screen show">
-      <div class="loading-ring-wrap"><div class="l-ring"></div><div class="l-heart">❤️</div></div>
+      <div class="loading-ring-wrap"><div class="l-ring"></div><div class="l-heart" data-icon="heart" data-icon-size="24"></div></div>
       <div style="text-align:center">
         <div class="loading-title">Building your perfect date</div>
         <div class="loading-msg"><span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></div>
@@ -361,12 +361,12 @@
         <div class="swipe-setup-group">
           <div class="swipe-setup-label">Vibe <span class="swipe-setup-opt">(optional)</span></div>
           <div class="swipe-setup-chips" data-group="vibe">
-            <button class="chip" data-val="Romantic">🌹 Romantic</button>
-            <button class="chip" data-val="Fun">🎉 Fun</button>
-            <button class="chip" data-val="Chill">☕ Chill</button>
-            <button class="chip" data-val="Foodie">🍜 Foodie</button>
-            <button class="chip" data-val="Adventurous">🧗 Adventurous</button>
-            <button class="chip on" data-val="any">✨ Surprise me</button>
+            <button class="chip" data-val="Romantic" data-icon="flower-2">Romantic</button>
+            <button class="chip" data-val="Fun" data-icon="party-popper">Fun</button>
+            <button class="chip" data-val="Chill" data-icon="coffee">Chill</button>
+            <button class="chip" data-val="Foodie" data-icon="chef-hat">Foodie</button>
+            <button class="chip" data-val="Adventurous" data-icon="mountain">Adventurous</button>
+            <button class="chip on" data-val="any" data-icon="sparkles">Surprise me</button>
           </div>
         </div>
         <button class="btn-pink swipe-setup-go" onclick="startSwipeDeck()">Start swiping →</button>
@@ -374,7 +374,7 @@
 
       <div id="swipe-deck" style="display:none">
       <div class="swipe-head">
-        <button class="swipe-change-btn" onclick="showSwipeSetup()">⚙ Change filters</button>
+        <button class="swipe-change-btn" onclick="showSwipeSetup()" data-icon="sliders-horizontal">Change filters</button>
         <span class="swipe-saved-note" id="swipe-saved-note"></span>
       </div>
       <div class="swipe-stack" id="swipe-stack"></div>
@@ -528,6 +528,7 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

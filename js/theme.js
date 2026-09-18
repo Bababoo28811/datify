@@ -28,9 +28,14 @@
     var current = document.documentElement.getAttribute('data-theme');
     var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     var effectiveDark = current ? current === 'dark' : systemDark;
-    var icon = effectiveDark ? '☀️' : '🌙';
+    var name = effectiveDark ? 'sun' : 'moon';
+    // This file loads in <head>, before js/icons.js, so fall back to the emoji
+    // if the toggle is somehow painted before the icon set exists.
+    var svg = window.icon ? window.icon(name, { size: 17 }) : '';
     document.querySelectorAll('.theme-toggle').forEach(function (btn) {
-      btn.textContent = icon;
+      btn.setAttribute('aria-label', effectiveDark ? 'Switch to light mode' : 'Switch to dark mode');
+      if (svg) btn.innerHTML = svg;
+      else btn.textContent = effectiveDark ? '☀' : '☾';
     });
   };
 

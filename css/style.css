@@ -1,5 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
+    /* Inline SVG icons (js/icons.js). Sit on the text baseline and inherit
+       colour, which is the whole point of replacing the emoji. */
+    .dt-icon{display:inline-block;vertical-align:-0.15em;flex-shrink:0}
     :root{
       --pink:#FF6B81;--peach:#FFD6C9;--bg:#FFF8F6;--text:#2D2D2D;
       --white:#FFFFFF;--muted:#9B8B8E;--border:#EDD9D3;
@@ -28,7 +31,10 @@
       --nav-bg:rgba(23,21,26,0.92);
     }
     html,body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6;transition:background 0.2s,color 0.2s}
-    .theme-toggle{width:36px;height:36px;border-radius:100px;border:1.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+    /* color matters now that the glyph is an SVG inheriting currentColor —
+       a button with no colour set falls back to the UA default (black), which
+       is invisible on the dark theme. The emoji used to hide this. */
+    .theme-toggle{width:36px;height:36px;border-radius:100px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
     .theme-toggle:hover{border-color:var(--pink)}
     .hidden{display:none!important}
     .page{display:none}
@@ -179,7 +185,7 @@
     .deals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
     .deal-card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:all 0.22s;box-shadow:var(--shadow-sm)}
     .deal-card:hover{transform:translateY(-6px);box-shadow:var(--shadow)}
-    .deal-img{height:170px;display:flex;align-items:center;justify-content:center;font-size:52px;position:relative;overflow:hidden}
+    .deal-img{height:170px;display:flex;align-items:center;justify-content:center;font-size:52px;position:relative;overflow:hidden;color:var(--pink-dark)}
     .deal-img-overlay{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap}
     .deal-tag{background:var(--white);color:var(--text);font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;border:1px solid var(--border)}
     .deal-tag.pink{background:var(--pink-light);color:var(--pink);border-color:transparent}
@@ -274,9 +280,9 @@
     .chip:hover{border-color:var(--pink);color:var(--pink)}
     .chip.on{background:var(--pink);border-color:var(--pink);color:var(--on-accent)}
     .vibes-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-    .vibe-btn{border:1.5px solid var(--border);border-radius:16px;padding:16px 10px;text-align:center;cursor:pointer;background:var(--white);transition:all 0.18s;font-family:'Inter',sans-serif}
+    .vibe-btn{border:1.5px solid var(--border);border-radius:16px;padding:16px 10px;text-align:center;cursor:pointer;background:var(--white);color:var(--text);transition:all 0.18s;font-family:'Inter',sans-serif}
     .vibe-btn:hover,.vibe-btn.sel{border-color:var(--pink);background:var(--pink-xlight)}
-    .vibe-btn .ve{font-size:26px;display:block;margin-bottom:6px}
+    .vibe-btn .ve{font-size:26px;display:block;margin-bottom:6px;color:var(--pink);line-height:1}
     .vibe-btn .vn{font-size:13px;font-weight:700;color:var(--text)}
     .vibe-btn .vd{font-size:11px;color:var(--muted);margin-top:2px}
     .generate-btn{width:100%;padding:18px;border-radius:16px;font-size:17px;font-weight:800;cursor:pointer;border:none;background:var(--pink);color:var(--on-accent);font-family:'Inter',sans-serif;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:4px}
@@ -316,13 +322,19 @@
     .timeline{position:relative;padding-left:56px}
     .tl-spine{position:absolute;left:22px;top:12px;bottom:12px;width:2px;background:linear-gradient(to bottom,var(--pink),var(--peach) 70%,transparent)}
     .tl-item{position:relative;margin-bottom:0}
-    .tl-node{position:absolute;left:-44px;width:36px;height:36px;border-radius:50%;background:var(--white);border:2.5px solid var(--pink);display:flex;align-items:center;justify-content:center;font-size:17px;z-index:2}
+    .tl-node{position:absolute;left:-44px;width:36px;height:36px;border-radius:50%;background:var(--white);border:2.5px solid var(--pink);display:flex;align-items:center;justify-content:center;font-size:17px;z-index:2;color:var(--pink)}
+    /* Saturated node backgrounds need the icon in on-accent, not the theme text
+       colour, or a light-mode icon lands on a light fill. */
+    .tl-node.food,.tl-node.activity,.tl-node.drinks{color:var(--on-accent)}
     .tl-node.food{background:var(--pink);border-color:var(--pink)}
     .tl-node.activity{background:var(--purple);border-color:var(--purple)}
     .tl-node.drinks{background:#F59E0B;border-color:#F59E0B}
     .tl-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px 24px;margin-bottom:6px;display:flex;gap:18px;transition:box-shadow 0.2s}
     .tl-card:hover{box-shadow:var(--shadow-sm)}
-    .tl-card-img{width:80px;height:80px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:32px;background:var(--pink-light)}
+    /* The inline background here is a fixed pastel that doesn't flip with the
+       theme, so the placeholder icon takes a fixed dark pink rather than
+       var(--text), which would go light and vanish in dark mode. */
+    .tl-card-img{width:80px;height:80px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:32px;background:var(--pink-light);color:var(--pink-dark)}
     .tl-card-body{flex:1}
     .tl-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
     .tl-badge.food{background:var(--pink-light);color:var(--pink)}
@@ -414,7 +426,7 @@
     .pin-clear{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;flex-shrink:0}
     .pin-clear:hover{color:var(--pink)}
     .save-plan-btn.saved{background:#10B981;cursor:default}
-    .spc-icon{width:60px;height:60px;border-radius:16px;background:var(--pink-light);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+    .spc-icon{width:60px;height:60px;border-radius:16px;background:var(--pink-light);color:var(--pink);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
     .spc-body{flex:1}
     .spc-name{font-size:16px;font-weight:700;margin-bottom:3px}
     .spc-meta{font-size:13px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
@@ -422,7 +434,7 @@
     .spc-cost{font-size:20px;font-weight:800;color:var(--pink)}
     .spc-stops{font-size:12px;color:var(--muted);margin-top:2px}
     .empty-state{text-align:center;padding:56px 24px;border:1px dashed var(--border);border-radius:var(--r);background:var(--white)}
-    .empty-state .es-icon{font-size:52px;margin-bottom:16px}
+    .empty-state .es-icon{font-size:52px;margin-bottom:16px;color:var(--pink);line-height:1}
     .empty-state h3{font-size:19px;font-weight:700;margin-bottom:8px}
     .empty-state p{font-size:14px;color:var(--muted);margin-bottom:20px}
 
