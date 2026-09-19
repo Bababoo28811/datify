@@ -57,6 +57,14 @@
     }
     if (area)       area.innerHTML       = html;
     if (areaMobile) areaMobile.innerHTML = html;
+
+    // Door to the back office, in the one menu the site actually shows
+    // (.nav-links is display:none at every width, so the hamburger is it).
+    // admin.html is reachable only by typing its address, which in practice
+    // meant retyping it every single time. Hidden for everyone else — though
+    // admin.js and the RLS policies are the real guard; this is just a link.
+    const adminLink = document.getElementById('nav-admin-link');
+    if (adminLink) adminLink.style.display = (user && user.email === ADMIN_EMAIL) ? '' : 'none';
   }
 
   // ============================================================
