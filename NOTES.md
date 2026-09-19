@@ -89,6 +89,38 @@ Suppliers still see their own scheduled deals. There is no "is this live" flag �
 the phase (scheduled / active / expired) is always derived from the dates
 (`dealPhase()` in `supplier.js`).
 
+**Nothing deletes or archives an expired deal.** It stays in `deals` with its data
+intact and simply stops being returned by the read policies, so a deal that gets
+renewed only needs its `end_date` edited.
+
+#### The cron job that used to be here (removed 19 Sep)
+
+"No cron" above was aspirational until 19 Sep — there was a nightly `pg_cron` job
+(jobid 1, `0 0 * * *`) calling `expire_old_deals()`, undocumented and not in the
+repo. It had failed **every night since 24 April** on
+`column "is_ongoing" does not exist` (the column is `ongoing`), so it never did
+anything. Its body was:
+
+```sql
+update deals set status = 'expired'
+where status = 'active' and is_ongoing = false
+  and end_date is not null and end_date < current_date;
+```
+
+It was **dropped, not repaired**, because repairing it would have caused real
+damage:
+
+- `status` holds *approval* state — only `pending` / `approved` / `rejected` are
+  real values. Writing `'expired'` into it means a renewed deal is no longer
+  approved and would need re-approving to come back.
+- It duplicates work the read policies already do correctly.
+- `current_date` is UTC and the job ran at UTC midnight (8am SGT) — exactly the
+  timezone bug that was fixed in the policies.
+
+No rows were ever affected: all 19 deals were still `approved` afterwards.
+**If expiry ever looks like it needs a job, re-read this section first — it
+doesn't.**
+
 ### Security
 
 `supabase-rls-policies.sql` was rewritten 19 Sep. The old version described
@@ -184,6 +216,42 @@ onemap.gov.sg → Account Settings → Forget Password.
 - Supplier portal: Scheduled/Active/Expired status, time-of-day chips, Mon–Sun
   chips, per-holiday Valid / Not valid question. Saving is blocked until answered.
 - Admin approval queue.
+- **"To Stay or Not to Stay" on `admin.html`** (19 Sep) — a keep-or-drop verdict per deal:
+  **Y / N**, the real cost once `++` and any conditions land, and remarks behind
+  an expand. Flagged first, filterable to flagged/passed only.
+  - The question is **"is this a real saving"**, not "is this cheap." A $98
+    buffet honestly priced at $98 passes; a headline discount off a price nobody
+    was ever charged fails. Affordability is what the price filters are for.
+  - Verdicts live in their own table, **`deal_reviews`**, not as columns on
+    `deals` — `deals_public_read` returns every column, so an opinion about a
+    named venue would have been readable straight from the public API even if
+    the site never rendered it. One policy, founder only. **Never add a public
+    read policy to that table**, and never surface these on the customer site.
+  - The first 19 were written in-session, 11 Y / 8 N. Current state: **11 deals
+    have no discount and no `original_price`** — four percentage offers that
+    literally can't be evaluated, and four ($48–$98) that are menu prices listed
+    as deals. See section 5.
+  - Verdicts go stale when prices change; `checked_at` records when each was
+    written. Nothing refreshes them yet.
+- **Expiry tracker on `admin.html`** (19 Sep) — the catalogue shrinks on its own
+  and nothing used to say so. Two stat cards (**Lapsed**, **Expiring ≤14 days**)
+  and an "Expiring soon" table above the queue, windowed to 7 / 30 / 90 days.
+  - `WARN_DAYS = 14`, not 7: renewing means getting an answer out of a venue.
+    Six deals share a 30 Sep end date and a 7-day band showed all six as fine.
+  - **Already-lapsed deals are listed, deliberately.** They're invisible on the
+    site and are the likeliest to just need a new date — the most useful rows
+    here, not noise.
+  - Actions per row: **+1 mo**, **+3 mo**, **Ongoing**. Extending counts forward
+    from *today* when a deal has already lapsed, so a renewed deal can't land
+    back in the past. `addMonths` clamps to the month's length (31 Jan + 1 mo is
+    28 Feb, not 3 Mar). **Ongoing** also clears `end_date`, matching what the
+    supplier form writes (`supplier.js:463`).
+  - It never writes `status` — that column is approval state, and the expiry
+    panel has no business touching it. See the removed cron in section 2.
+  - It has its own fetch (`expiringDeals`) because the queue table follows the
+    status dropdown, which starts on "pending".
+  - `sgToday()` is duplicated from `supplier.js` — `admin.html` doesn't load
+    that file, and both pages have to agree on what "today" is.
 - Dark mode, hamburger-only nav, How It Works, contact form.
 
 ### Icons (19 Sep)

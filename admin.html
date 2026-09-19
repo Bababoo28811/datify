@@ -39,6 +39,62 @@
     <div class="stat-card"><div class="stat-val" id="stat-pending" style="color:var(--pink)">—</div><div class="stat-lbl">Pending review</div></div>
     <div class="stat-card"><div class="stat-val" id="stat-approved">—</div><div class="stat-lbl">Approved</div></div>
     <div class="stat-card"><div class="stat-val" id="stat-rejected">—</div><div class="stat-lbl">Rejected</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-lapsed" style="color:var(--red)">—</div><div class="stat-lbl">Lapsed</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-expiring">—</div><div class="stat-lbl">Expiring ≤14 days</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:22px">
+    <div class="card-head">
+      <h2>Expiring soon</h2>
+      <select id="expiry-window" onchange="renderExpiring()" style="border:1.5px solid var(--border);border-radius:10px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:13px;background:var(--white);color:var(--text)">
+        <option value="7">Next 7 days</option>
+        <option value="30" selected>Next 30 days</option>
+        <option value="90">Next 90 days</option>
+      </select>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Area</th>
+            <th>Ends</th>
+            <th>When</th>
+            <th>Extend</th>
+          </tr>
+        </thead>
+        <tbody id="expiry-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="expiry-msg" class="msg" style="margin:0 24px 16px"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:22px">
+    <div class="card-head">
+      <h2>To Stay or Not to Stay <span id="review-summary" style="font-weight:500;color:var(--muted)"></span></h2>
+      <select id="review-filter" onchange="renderReviews()" style="border:1.5px solid var(--border);border-radius:10px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:13px;background:var(--white);color:var(--text)">
+        <option value="all" selected>All deals</option>
+        <option value="n">Flagged only</option>
+        <option value="y">Passed only</option>
+      </select>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32px"></th>
+            <th>Deal</th>
+            <th>Worth it</th>
+            <th>What you actually pay</th>
+          </tr>
+        </thead>
+        <tbody id="review-tbody">
+          <tr><td colspan="4" style="text-align:center;padding:28px;color:var(--muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="card">

@@ -327,3 +327,26 @@ create policy suppliers_upload_deal_images
     bucket_id = 'deal-images'
     and (storage.foldername(name))[1] = (auth.uid())::text
   );
+
+
+-- ------------------------------------------------------------
+-- deal_reviews — internal "is this actually value for money"
+-- verdicts, written by the founder (or an agent acting for her)
+-- and read only on admin.html.
+--
+-- These are opinions about named businesses. They live in their
+-- own table rather than as columns on `deals` precisely because
+-- deals_public_read returns EVERY column of that table: a note
+-- saying a venue is not worth the money would have been fetchable
+-- straight from the public API, whether or not the site rendered
+-- it. Keep it that way.
+--
+-- One policy, founder only, covering all commands. There is
+-- deliberately no anon and no general authenticated policy.
+-- Never add a public read policy here.
+-- ------------------------------------------------------------
+drop policy if exists deal_reviews_admin_all on deal_reviews;
+create policy deal_reviews_admin_all on deal_reviews
+  for all to authenticated
+  using      ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com')
+  with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
