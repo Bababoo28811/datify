@@ -548,7 +548,46 @@
   </div>
 </div>
 
+<!-- FOOTER — deliberately outside the .page divs, so it sits under every
+     view rather than being swapped out by go(). -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo">Datify</div>
+      <p class="footer-tagline">Real date deals in Singapore &mdash; checked, dated, and with the fine print left in.</p>
+    </div>
+
+    <nav class="footer-links" aria-label="Footer">
+      <div class="footer-col">
+        <h4>Browse</h4>
+        <button onclick="go('explore')">Explore deals</button>
+        <button onclick="go('planner')">Plan a date</button>
+        <button onclick="go('swipe')">Swipe</button>
+        <button onclick="go('saved')">Saved</button>
+      </div>
+      <div class="footer-col">
+        <h4>Datify</h4>
+        <button onclick="go('howitworks')">How it works</button>
+        <button onclick="go('contact')">Contact</button>
+        <a href="mailto:datify@getdatify.com">datify@getdatify.com</a>
+      </div>
+    </nav>
+  </div>
+
+  <div class="footer-note">
+    <p>Datify is an independent site and is not affiliated with, or endorsed by, the
+    venues listed here. Deals are collected from publicly published listings. Prices,
+    terms and availability are set by the merchant and can change or end without
+    notice, so please check with the venue before you go.</p>
+  </div>
+
+  <div class="footer-bottom">
+    <span>&copy; 2026 Datify &middot; Singapore</span>
+  </div>
+</footer>
+
 <script src="js/supabase-client.js"></script>
+<script src="js/admins.js"></script>
 <script src="js/track.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/app.js"></script>

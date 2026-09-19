@@ -16,6 +16,34 @@
 -- ============================================================
 
 
+
+-- ------------------------------------------------------------
+-- is_admin() — who counts as the founder (added 20 Sep 2026).
+--
+-- Before this, the founder's email was written out by hand in
+-- eleven policies across nine tables. Adding a second founder
+-- address meant editing all eleven and hoping none was missed.
+-- Every admin policy below now asks this one function instead.
+--
+-- Mirrored in js/admins.js, which drives the interface. The two
+-- are checked independently and the JS side enforces nothing —
+-- this is the check that actually holds.
+--
+-- search_path is pinned empty and auth.jwt() fully qualified so
+-- the function cannot be redirected by a caller's search_path.
+-- ------------------------------------------------------------
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select lower(coalesce((select auth.jwt() ->> 'email'), '')) in (
+    'elisazhu.ys@gmail.com',   -- Elisa's personal account, the original login
+    'getdatify@gmail.com'      -- the Datify business inbox
+  );
+$$;
+
 -- ------------------------------------------------------------
 -- supplier_whitelist — a signed-in user may only check whether
 -- THEIR OWN email is on it, which is all the app ever needs.
@@ -72,8 +100,8 @@ drop policy if exists categories_admin_all on categories;
 create policy categories_admin_all
   on categories for all
   to authenticated
-  using      ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com')
-  with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using      ((select public.is_admin()))
+  with check ((select public.is_admin()));
 
 
 -- ------------------------------------------------------------
@@ -121,7 +149,7 @@ drop policy if exists deals_admin_select on deals;
 create policy deals_admin_select
   on deals for select
   to authenticated
-  using ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using ((select public.is_admin()));
 
 drop policy if exists deals_insert on deals;
 create policy deals_insert
@@ -152,20 +180,20 @@ drop policy if exists deals_admin_insert on deals;
 create policy deals_admin_insert
   on deals for insert
   to authenticated
-  with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  with check ((select public.is_admin()));
 
 drop policy if exists deals_admin_update on deals;
 create policy deals_admin_update
   on deals for update
   to authenticated
-  using      ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com')
-  with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using      ((select public.is_admin()))
+  with check ((select public.is_admin()));
 
 drop policy if exists deals_admin_delete on deals;
 create policy deals_admin_delete
   on deals for delete
   to authenticated
-  using ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using ((select public.is_admin()));
 
 
 -- ------------------------------------------------------------
@@ -184,8 +212,8 @@ drop policy if exists free_activities_admin_all on free_activities;
 create policy free_activities_admin_all
   on free_activities for all
   to authenticated
-  using      ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com')
-  with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using      ((select public.is_admin()))
+  with check ((select public.is_admin()));
 
 
 -- ------------------------------------------------------------
@@ -203,8 +231,8 @@ drop policy if exists public_holidays_admin_write on public_holidays;
 create policy public_holidays_admin_write
   on public_holidays for all
   to authenticated
-  using      ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com')
-  with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using      ((select public.is_admin()))
+  with check ((select public.is_admin()));
 
 
 -- ------------------------------------------------------------
@@ -267,7 +295,7 @@ drop policy if exists contact_messages_admin_select on contact_messages;
 create policy contact_messages_admin_select
   on contact_messages for select
   to authenticated
-  using ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using ((select public.is_admin()));
 
 
 -- ------------------------------------------------------------
@@ -291,7 +319,7 @@ drop policy if exists profiles_admin_select_all on profiles;
 create policy profiles_admin_select_all
   on profiles for select
   to authenticated
-  using ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using ((select public.is_admin()));
 
 
 -- ------------------------------------------------------------
@@ -348,8 +376,8 @@ create policy suppliers_upload_deal_images
 drop policy if exists deal_reviews_admin_all on deal_reviews;
 create policy deal_reviews_admin_all on deal_reviews
   for all to authenticated
-  using      ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com')
-  with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using      ((select public.is_admin()))
+  with check ((select public.is_admin()));
 
 
 -- ------------------------------------------------------------
@@ -384,4 +412,4 @@ drop policy if exists events_admin_select on events;
 create policy events_admin_select
   on events for select
   to authenticated
-  using ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+  using ((select public.is_admin()));

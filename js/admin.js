@@ -2,7 +2,6 @@
 // RLS on the `deals` table is the real enforcement (deals_admin_update
 // policy checks the JWT email server-side) — this client-side check is
 // just to redirect non-admins away before they see an empty/broken page.
-const ADMIN_EMAIL = 'elisazhu.ys@gmail.com';
 
 let adminDeals = [];
 
@@ -21,7 +20,7 @@ async function initAdmin() {
     return;
   }
 
-  if (!session || session.user.email !== ADMIN_EMAIL) {
+  if (!session || !isAdminEmail(session.user.email)) {
     window.location.href = 'index.html';
     return;
   }

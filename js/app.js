@@ -6,7 +6,6 @@
   // ============================================================
   // Founder/admin account — gets to reach /admin.html and the supplier
   // dashboard without the supplier auto-redirect getting in the way.
-  const ADMIN_EMAIL = 'elisazhu.ys@gmail.com';
 
   const PASSWORD_RULE_TEXT = 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a symbol.';
   function isStrongPassword(pw) {
@@ -64,7 +63,7 @@
     // meant retyping it every single time. Hidden for everyone else — though
     // admin.js and the RLS policies are the real guard; this is just a link.
     const adminLink = document.getElementById('nav-admin-link');
-    if (adminLink) adminLink.style.display = (user && user.email === ADMIN_EMAIL) ? '' : 'none';
+    if (adminLink) adminLink.style.display = (user && isAdminEmail(user.email)) ? '' : 'none';
   }
 
   // ============================================================
@@ -183,7 +182,7 @@
     // dashboard — otherwise being whitelisted (or admin) would hijack every
     // login and make /admin.html awkward to reach. Admin can still open the
     // supplier dashboard directly by URL.
-    if (email === ADMIN_EMAIL) return false;
+    if (isAdminEmail(email)) return false;
     const { data, error } = await db
       .from('supplier_whitelist')
       .select('email')
@@ -2299,7 +2298,7 @@
     updateNavForAuth(session?.user ?? null);
     if (session?.user) {
       const supplier = await isSupplierEmail(session.user.email);
-      if (supplier || session.user.email === ADMIN_EMAIL) {
+      if (supplier || isAdminEmail(session.user.email)) {
         showSupplierNavLink();
       }
     }

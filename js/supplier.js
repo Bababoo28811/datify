@@ -4,7 +4,6 @@
 // The founder account can view this dashboard without being a whitelisted
 // supplier, so you can see exactly what suppliers see without adding
 // yourself to the whitelist (which would hijack your own logins).
-const SUPPLIER_ADMIN_EMAIL = 'elisazhu.ys@gmail.com';
 
 // ============================================================
 // AUTH GUARD — redirect if not logged in or not whitelisted
@@ -38,7 +37,7 @@ async function initSupplierDashboard() {
     return;
   }
 
-  const isAdmin = session.user.email === SUPPLIER_ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(session.user.email);
 
   if ((whitelistError || !data) && !isAdmin) {
     // Valid Datify user but NOT a supplier — send them home

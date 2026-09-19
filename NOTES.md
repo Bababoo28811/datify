@@ -5,7 +5,7 @@
 **Live site:** GetDatify.com (GitHub Pages)
 **Repo:** `C:\Users\Rog\dev\datify` → `https://github.com/Bababoo28811/datify.git`, branch `main`
 **Supabase project ref:** `uujbonptqglzndzlovmp` (region ap-northeast-1)
-**Admin/founder account:** elisazhu.ys@gmail.com
+**Founder accounts:** elisazhu.ys@gmail.com and getdatify@gmail.com — see section 2
 
 > **New session?** Read this file first, then check `git log` for anything newer
 > than the date above. **Where things stand:** the site is live and deployed,
@@ -13,6 +13,10 @@
 > Two things are actively costing users, though: **there is no password recovery
 > at all**, and **auth mail is landing in Gmail spam**. Both in section 5.
 > Start from section 7.
+>
+> **Working on the launch checklist** as of 20 Sep — see "Launch checklist
+> triage" in section 7 for what actually matters and what to skip. Footer and
+> analytics are done; the 404 page and the legal pages are next.
 >
 > **Reaching the admin page:** `getdatify.com` → ☰ → **Admin** (only shows for
 > the founder account). It is *not* the supplier dashboard, and "My Deals" there
@@ -41,6 +45,7 @@ will ask directly when she's short on time.
 | `supplier-dashboard.html` + `js/supplier.js` + `css/supplier.css` | Supplier portal: add/edit deals, categories, image upload. |
 | `admin.html` + `js/admin.js` | Founder-only. Approval queue, **Expiring soon**, **To Stay or Not to Stay** (shares `css/supplier.css`). This is Elisa's workspace — not the supplier dashboard. |
 | `js/supabase-client.js` | Creates the `db` client. Must load before `app.js`. |
+| `js/admins.js` | `ADMIN_EMAILS` + `isAdminEmail()`. The only copy of the founder list in the browser. Loads before `app.js` / `admin.js` / `supplier.js` on all three pages. |
 | `js/track.js` | `track()` — writes one row per interaction to `events`. Loads after the client, before `app.js`. See section 2. |
 | `js/icons.js` | Inline SVG icon set. **Generated — don't hand-edit.** See section 4. |
 | `supabase-rls-policies.sql` | Reference dump of the live RLS policies. See section 2. |
@@ -65,7 +70,7 @@ The dead root files (`supplier.js`, `supabase.js`, `Claude outputs/`) were delet
 | `profiles` | 2 | admin queue reads this for supplier emails |
 | `contact_messages` | 1 | |
 | `supplier_whitelist` | 1 | **`choijieen@gmail.com`** ("big ball inc", DTF-0001, added 24 Apr) — *not* Elisa |
-| `events` | 1 | usage log, new 20 Sep. The one row is a verification insert — delete it whenever. |
+| `events` | 0 | usage log, new 20 Sep. Empty until a real visitor arrives. |
 
 15 deals have a real price; 4 are percentage-discount offers (`price = 0` +
 `discount_label`). All 19 are geocoded and have `time_slots`.
@@ -91,6 +96,79 @@ a bug here.
 
 Worth deciding at some point whether `choijieen@gmail.com` should still have
 supplier access from April.
+
+### Who counts as the founder (20 Sep)
+
+There are now **two** founder accounts: `elisazhu.ys@gmail.com` (Elisa's
+personal, the original login) and `getdatify@gmail.com` (the Datify business
+inbox, so startup mail stops landing in a personal account).
+
+The email used to be hardcoded in **fourteen** places — three JS constants and
+eleven RLS policies across nine tables. Adding a second address that way meant
+editing all fourteen and hoping none was missed, so both sides got a single
+source of truth instead:
+
+| Side | Where | What it decides |
+|---|---|---|
+| Browser | `js/admins.js` → `ADMIN_EMAILS`, `isAdminEmail()` | what the interface offers: whether the Admin link shows, whether the supplier whitelist is bypassed |
+| Database | `public.is_admin()` | **the actual enforcement** — all 11 admin policies call it |
+
+Keep the two lists in step, but understand they are not equally important. The
+JS list enforces nothing: anyone can edit it in their own browser. `is_admin()`
+is the one an attacker would have to beat, and it reads the email off the
+signed JWT, which the browser cannot forge.
+
+`is_admin()` is `stable`, compares lowercased (Supabase lowercases the token
+email, but a form field does not), and pins `search_path = ''` with
+`auth.jwt()` fully qualified so it cannot be redirected by a caller's
+search_path. Verified 20 Sep: both founder emails pass including mixed case;
+the whitelisted supplier, an unknown address and a request with no token at
+all are all refused.
+
+**Two things to know before relying on the business account:**
+
+- **It only works once an account exists.** As of 20 Sep `getdatify@gmail.com`
+  has *not* signed up on the site, so it is an admin on paper only. Sign up at
+  getdatify.com with that address and it takes effect immediately — no code
+  change needed.
+- **There is still no password recovery** (section 5, and item 1 in section 7).
+  If the business account's password is lost there is no way back into it.
+  Elisa's personal account stays an admin deliberately, so there is always a
+  second way in. Do not remove it until password recovery exists.
+
+Anyone who controls `getdatify@gmail.com` can register and gain founder
+access, so treat that mailbox as a credential.
+
+### Email addresses (20 Sep)
+
+| Address | What it is |
+|---|---|
+| `elisazhu.ys@gmail.com` | Elisa's personal account. Still a founder login — see above. |
+| `getdatify@gmail.com` | The Datify business inbox. Where startup mail actually lands. |
+| `datify@getdatify.com` | The **public** address, in the site footer. A free Namecheap forwarder into `getdatify@gmail.com`. Not a mailbox of its own. |
+
+Three things worth knowing:
+
+- **The forwarder costs nothing.** The domain's MX records already pointed at
+  `eforward1..5.registrar-servers.com`, Namecheap's free forwarding, so it only
+  needed an alias (`datify`) adding in Domain List → Manage → Domain → Redirect
+  Email. Google Workspace tried to charge for this; it was never needed.
+  Namecheap allows up to 100 aliases.
+- **Forwarding is receive-only**, so Gmail "Send mail as" was set up on top of
+  it, sending through Resend's SMTP: `smtp.resend.com`, port 587 with TLS (465
+  with SSL also works — the pairing is fixed, and mixing them is what produces
+  a connection error), username the literal word **`resend`**, password a
+  Resend API key. Gmail pre-fills that username box with your email address
+  and re-fills it whenever you go Back, which returns `535 Invalid username`.
+  It is always the username, never the port.
+- The API key for this is **separate from the one Supabase uses** for auth
+  mail, so either can be revoked without taking down the other.
+
+**Don't bulk-send from this domain yet.** Auth mail is already landing in Gmail
+spam (section 5) and DMARC is `p=none`, so nothing is enforcing alignment. A
+handful of one-to-one emails to venues is fine. A campaign is not — it would
+put signup confirmations, which cost real users, at risk. If outreach grows,
+put it on a separate subdomain from transactional mail.
 
 ### Columns added this month
 
@@ -355,6 +433,19 @@ to a text glyph if `window.icon` isn't there yet.
   Deliberately empty, not the deal title: the title is already adjacent visible
   text, and many photos are stock images that don't show the real venue.
 
+- **Contrast: `--muted` darkened (20 Sep).** It was `#9B8B8E`, which is only
+  **3.24:1** on white — under the 4.5:1 AA floor for body text, and it is the
+  colour of nearly every secondary label on the site (deal locations, section
+  subtitles, price units, the footer). Now `#786A6D`: the same warm grey a few
+  steps darker, clearing 4.5:1 on all three light surfaces (white 5.15, `--bg`
+  4.90, `--pink-light` 4.66). Changed in **both** `css/style.css` and
+  `css/supplier.css`, which keep separate `:root` blocks. Dark mode's `--muted`
+  already passed at 6.81:1 and is untouched.
+  - Measuring this is fiddly: `.deal-card` carries `transition:all 0.22s`, so
+    reading `getComputedStyle` right after flipping the theme returns a colour
+    mid-animation. Reload into the theme you want to measure rather than
+    toggling and reading straight away.
+
 ### Type scale (19 Sep)
 
 Six tokens on `:root`, next to the radius ones:
@@ -425,6 +516,30 @@ cache expires, and can be forced with Facebook's Sharing Debugger.
 The `<title>` is still "Datify — Plan the Perfect Date" while `og:title` says
 "Real date deals in Singapore". Deliberate — the title is what Google shows —
 but worth a look if you want them to match.
+
+### Footer (20 Sep)
+
+There was no `<footer>` element at all until 20 Sep — no business details, no
+contact, no copyright line. For a site that is about to cold-email venues that
+is the first credibility check it fails, so it went in ahead of the rest of the
+launch checklist.
+
+- Markup sits **outside the `.page` divs**, after the wrapper that `go()`
+  swaps, so one copy serves every view instead of being hidden with the page.
+- Contact is **datify@getdatify.com**, a free Namecheap forwarder. The domain's
+  MX records already pointed at `eforward1..5.registrar-servers.com`, so
+  forwarding only needed an alias adding in the Namecheap dashboard — no
+  Google Workspace, no cost, no DNS change. Namecheap allows up to 100.
+- **No entity claim.** Datify is not registered with ACRA, so the footer says
+  "© 2026 Datify · Singapore" and nothing that implies a company. When it is
+  registered, the registered name and UEN go on that line.
+- The disclaimer paragraph does real work: it states that Datify is
+  independent, not affiliated with the venues, that deals come from publicly
+  published listings, and that terms are the merchant's. That is the substance
+  of a terms page in miniature, and it stands in until there is one.
+- **No Privacy or Terms links yet**, because those pages do not exist and
+  linking to a 404 is worse than not linking. They slot into the "Datify"
+  column when the pages are written.
 
 ### Responsive (19 Sep)
 
@@ -772,6 +887,65 @@ rough order of value:
 8. Raise the Supabase auth rate limit (section 5).
 9. Design backlog #5 (hero proof line) — a one-liner whenever you want it.
 
+### Launch checklist triage (20 Sep)
+
+Elisa brought a launch/compliance checklist before starting vendor outreach.
+Checked against the actual site rather than assumed. The point of outreach is
+that a venue clicks the link *looking for a reason to say no*, so this is
+ordered by what a venue would notice.
+
+**Already done — verified, don't redo:** meta title and description, Open
+Graph image (1200×630, absolute URLs, Twitter card), the full favicon set,
+robots.txt and sitemap.xml, alt text on all 9 `<img>` tags, CTA above the
+fold, loading states, analytics, and font/image licensing (Google Fonts plus
+Unsplash; all 19 deal images are Unsplash and flagged `image_is_stock`).
+There are no fake reviews, no invented numbers, no hidden fees and no dark
+patterns — the hero stats read from the real database.
+
+**Deliberately skipped, with reasons:**
+
+- **Cookie banner.** PDPA has no EU-style cookie consent rule, and there are
+  no third-party trackers — the analytics write to our own database with no
+  cookie. A banner would annoy people for nothing.
+- **Refund policy.** No money changes hands.
+- **Unsubscribe links.** Only transactional auth mail goes out; the Spam
+  Control Act covers marketing. This becomes real on the first newsletter.
+- **Age consent for children's data.** Not a child-directed service.
+- **Meta title per page.** Every "page" is a div on one URL. Per-page meta
+  needs a routed app and the SEO gain does not justify the rebuild.
+
+**Still to do, in order:**
+
+1. ~~Footer~~ — done 20 Sep, see section 4.
+2. **Custom 404 page.** Single-page app on GitHub Pages, so any wrong URL
+   serves GitHub's grey "File not found". Links are about to go out in emails.
+   Needs `404.html` at the repo root; GitHub Pages picks it up automatically.
+3. **Terms / "how this works".** The most important legal page *for this
+   business*, ahead of privacy: Datify republishes offers it does not control,
+   sourced from public blogs, with end dates that are mostly our own
+   bookkeeping. It needs to say the terms are the merchant's, that Datify does
+   not guarantee a deal will be honoured, and that it is not party to the
+   transaction. The footer disclaimer covers this in miniature for now.
+4. **Privacy policy + a named data protection contact.** Emails, contact
+   messages and shortlists are collected, so PDPA's notification and consent
+   obligations apply. Singapore also requires designating a DPO and
+   **publishing their business contact details** — the part small sites miss.
+5. **A data deletion / access request channel** (PDPA right of access and
+   correction). Can be as simple as a published address plus a documented
+   process.
+6. Accessibility: keyboard navigation and a contrast sweep beyond `--muted`.
+   Alt text and the `--muted` fix are already done.
+7. Sticky mobile CTA and form error states — conversion polish, not blockers.
+
+Get 3 and 4 drafted properly rather than pasting a template; the terms page in
+particular has to describe the aggregation model, and a generic one will not.
+
+**Not a checklist item, but the real outreach risk:** the venues being emailed
+are already listed on the site without ever having agreed. Some will be
+pleased; at least one will ask who gave permission and where the photo came
+from. Decide before sending whether the first email leads with "you're already
+listed" or asks first.
+
 ### Proposed but not built
 
 - **A "Drop" button on flagged rows** in To Stay or Not to Stay. Today the
@@ -790,9 +964,17 @@ rough order of value:
 
 ### Repo state at handoff (20 Sep)
 
-Five commits on 20 Sep, all pushed and deployed:
+**Uncommitted work in the tree at end of day 20 Sep** — the footer, the
+`--muted` contrast fix, and the second founder account. Eleven files plus the
+new `js/admins.js`. The matching **database** changes (the `events` table,
+`deals.venue_url`, `is_admin()` and the eleven rewritten policies) are already
+applied and live, so the tree and the database are out of step until this is
+pushed. Push it before doing anything else.
+
+Six commits on 20 Sep, pushed and deployed:
 
 ```
+936c697  Start counting what visitors do, and link out to the venue
 7ff205e  Put an Admin link in the site menu for the founder account
 dfcea69  Fix the invisible theme toggle and move Sign out out of the nav
 ff4429c  Link the admin and supplier pages to each other
@@ -801,7 +983,9 @@ c7cc81a  Track deal expiry and keep-or-drop verdicts on the admin page
 
 Database changes the same day: `deal_reviews` created (founder-only RLS, dumped
 into `supabase-rls-policies.sql`) and seeded with 19 verdicts; the broken
-`expire_old_deals()` cron job and its function dropped.
+`expire_old_deals()` cron job and its function dropped. Later the same day:
+`events` created, `deals.venue_url` added, and `is_admin()` introduced with all
+eleven admin policies rewritten to call it.
 
 ### Repo state at previous handoff (19 Sep)
 

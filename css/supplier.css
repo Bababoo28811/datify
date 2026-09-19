@@ -2,7 +2,12 @@
     *{box-sizing:border-box;margin:0;padding:0}
     :root{
       --pink:#FF6B81;--pink-dark:#E8526A;--pink-light:#FFF0F2;--pink-xlight:#FFF8F9;
-      --bg:#FFF8F6;--text:#2D2D2D;--muted:#9B8B8E;--border:#EDD9D3;--white:#FFFFFF;
+      /* --muted was #9B8B8E: 3.24:1 on white, under the 4.5:1 AA floor for
+         body text, and it is used for every secondary label on the site.
+         #786A6D is the same warm grey a few steps darker and clears 4.5:1
+         on all three light surfaces (white 5.15, --bg 4.90, --pink-light
+         4.66). Dark mode's --muted already passed and is unchanged. */
+      --bg:#FFF8F6;--text:#2D2D2D;--muted:#786A6D;--border:#EDD9D3;--white:#FFFFFF;
       --green:#10B981;--red:#EF4444;--purple:#8B5CF6;
       --shadow:0 4px 24px rgba(255,107,129,0.10);
       --shadow-sm:0 2px 12px rgba(255,107,129,0.07);
