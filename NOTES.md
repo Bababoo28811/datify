@@ -1,6 +1,6 @@
 # Datify — Handoff
 
-**Last updated:** 19 Sep 2026
+**Last updated:** 20 Sep 2026
 **Owner:** Elisa (sole founder)
 **Live site:** GetDatify.com (GitHub Pages)
 **Repo:** `C:\Users\Rog\dev\datify` → `https://github.com/Bababoo28811/datify.git`, branch `main`
@@ -9,8 +9,14 @@
 
 > **New session?** Read this file first, then check `git log` for anything newer
 > than the date above. **Where things stand:** the site is live and deployed,
-> `main` is the only branch and is in sync, and **nothing is blocking launch** —
-> signup email was the last blocker and it works (section 5). Start from section 7.
+> `main` is the only branch and is in sync, and nothing is blocking launch.
+> Two things are actively costing users, though: **there is no password recovery
+> at all**, and **auth mail is landing in Gmail spam**. Both in section 5.
+> Start from section 7.
+>
+> **Reaching the admin page:** `getdatify.com` → ☰ → **Admin** (only shows for
+> the founder account). It is *not* the supplier dashboard, and "My Deals" there
+> will always look empty — section 2 explains why.
 
 ---
 
@@ -33,7 +39,7 @@ will ask directly when she's short on time.
 | `css/style.css` | ~43 KB. Theming is CSS custom properties on `:root`, flipped by `[data-theme="dark"]`. |
 | `js/theme.js` | Dark mode toggle + localStorage. Loaded in `<head>` on every page to avoid a flash. |
 | `supplier-dashboard.html` + `js/supplier.js` + `css/supplier.css` | Supplier portal: add/edit deals, categories, image upload. |
-| `admin.html` + `js/admin.js` | Founder-only approval queue (shares `css/supplier.css`). |
+| `admin.html` + `js/admin.js` | Founder-only. Approval queue, **Expiring soon**, **To Stay or Not to Stay** (shares `css/supplier.css`). This is Elisa's workspace — not the supplier dashboard. |
 | `js/supabase-client.js` | Creates the `db` client. Must load before `app.js`. |
 | `js/icons.js` | Inline SVG icon set. **Generated — don't hand-edit.** See section 4. |
 | `supabase-rls-policies.sql` | Reference dump of the live RLS policies. See section 2. |
@@ -57,12 +63,32 @@ The dead root files (`supplier.js`, `supabase.js`, `Claude outputs/`) were delet
 | `categories` | 4 | Dining 14 / Activities 3 / Outdoor 1 / Drinks 1 |
 | `profiles` | 2 | admin queue reads this for supplier emails |
 | `contact_messages` | 1 | |
-| `supplier_whitelist` | 1 | Elisa only |
+| `supplier_whitelist` | 1 | **`choijieen@gmail.com`** ("big ball inc", DTF-0001, added 24 Apr) — *not* Elisa |
 
 15 deals have a real price; 4 are percentage-discount offers (`price = 0` +
 `discount_label`). All 19 are geocoded and have `time_slots`.
 
 Deal vibes: Fun 6, Foodie 5, Chill 3, Romantic 3, Adventurous 2.
+
+### Who the supplier dashboard is actually for (corrected 20 Sep)
+
+This file previously said the whitelist held "Elisa only." It doesn't, and never
+did. Two facts that follow, both of which caused real confusion:
+
+- **Elisa is not a whitelisted supplier.** She reaches
+  `supplier-dashboard.html` purely through the `isAdmin` bypass in
+  `supplier.js` — which is exactly why the "Admin preview" banner
+  (`supplier-dashboard.html:42`) shows for her.
+- **All 19 deals have `supplier_id = NULL`.** None belongs to any account,
+  because they were all added directly rather than through the supplier flow.
+
+So **"My Deals" on the supplier dashboard is always empty for Elisa, and always
+will be.** That page is the view a *restaurant* gets; it is not the founder's
+workspace. Everything she works with lives on `admin.html`. Don't go looking for
+a bug here.
+
+Worth deciding at some point whether `choijieen@gmail.com` should still have
+supplier access from April.
 
 ### Columns added this month
 
@@ -254,6 +280,41 @@ onemap.gov.sg → Account Settings → Forget Password.
     that file, and both pages have to agree on what "today" is.
 - Dark mode, hamburger-only nav, How It Works, contact form.
 
+### Reaching the back office (20 Sep)
+
+`admin.html` was reachable **only by typing its address** — nothing on the site
+linked to it, and the two back-office pages didn't link to each other. In
+practice that meant retyping the URL every time, and it read as though the page
+didn't exist. Three doors now:
+
+1. **`getdatify.com` → ☰ → Admin** — the main one. Added to the hamburger menu
+   (`.nav-links` is `display:none` at every width, so that menu *is* the nav),
+   hidden by default and revealed in `updateNavForAuth()` off the `ADMIN_EMAIL`
+   constant already at `app.js:9`. Verified in all four states: hidden by
+   default, visible for the founder, hidden for another signed-in user, hidden
+   for guests.
+2. **Supplier dashboard → `Admin →`** in the nav, revealed off the same
+   `isAdmin` check `supplier.js` already used for the whitelist bypass.
+3. **`admin.html` → `Supplier →`** going back the other way (no condition — the
+   page is founder-only already).
+
+These are doorways, not security. `admin.js` and the RLS policies remain the
+actual guard, which is why a supplier never sees a link they'd only be bounced
+from.
+
+### Two back-office UI fixes (20 Sep)
+
+- **The theme toggle was invisible in dark mode** on `admin.html` and
+  `supplier-dashboard.html`. `css/style.css` gives `.theme-toggle`
+  `color:var(--text)`; `css/supplier.css` never did, and a `<button>` does not
+  inherit `color` from the page — so the glyph fell back to the UA default
+  near-black. Now themed on both. **If you add a control to `supplier.css`,
+  check it against `style.css` first: the two stylesheets have drifted.**
+- **Sign out moved out of the nav** to the foot of the page (`.signout-foot`) on
+  both pages. It sat top-right beside the two buttons actually used often, which
+  is where muscle memory reaches for something else — and an accidental sign-out
+  on a login-gated page costs a whole log-in.
+
 ### Icons (19 Sep)
 
 `js/icons.js` is **generated from lucide-static v1.47.0** (ISC), fetched from
@@ -431,6 +492,60 @@ and the root domain briefly stopped resolving. They're restored
 (`bababoo28811.github.io`) must never be removed** — the checkboxes in Namecheap's
 record list are bulk-*delete* selection, not enable toggles.
 
+### There is no password recovery (found 20 Sep — the hard way)
+
+**The site has no "Forgot password" flow.** `resetPasswordForEmail` appears
+nowhere in the codebase; `saveProfilePassword()` (`app.js:2194`) only works for
+someone *already signed in*. So any user who forgets their password is locked
+out permanently with no route back.
+
+Elisa hit this herself on 20 Sep and got back in only via the Supabase
+dashboard, which no ordinary user has. **This is a silent account-loss bug for
+every real user.** The fix is small and the email side already works:
+`db.auth.resetPasswordForEmail()`, a link under the sign-in button, and a page
+that catches the recovery session and reuses the password form that exists.
+
+Note the recovery link obeys the redirect allow-list (`getdatify.com/**`), so it
+**cannot** return to a localhost dev server — it always lands on the live site.
+
+### Auth mail is landing in Gmail spam (20 Sep)
+
+The 20 Sep recovery mail was **delivered but filed as spam**. Supabase's side was
+clean: two `/recover` calls, both HTTP 200, ~2s SMTP round-trips, no rate-limit
+rejection. Delivery is working; *placement* is not.
+
+This matters far more than one lost password: **signup confirmations go the same
+route.** A new user who never finds the mail assumes the site is broken and
+leaves, and this would never show up in testing because whoever tests knows to
+check spam. Section 5 says signup email "works end to end" — it does *deliver*,
+but that is not the same as arriving in an inbox. Worth checking the DMARC policy
+and the from-name.
+
+### Where deals actually come from (20 Sep)
+
+All 19 deals are `source = 'curated'` and **no supplier has ever listed one**.
+Sourcing is three roundup blogs on a monthly cycle:
+
+| Source | Deals | URL shape |
+|---|---|---|
+| Eatbook | 3 | `eatbook.sg/food-deals-singapore-<month>-<year>/` |
+| Bykido | 3 | `bykido.com/blogs/…-in-singapore-this-<month>-<year>` |
+| Sassy Mama | 2 | `sassymamasg.com/play-deals-promo-codes-discounts-attractions-dining/` |
+
+Two of the three are **month-stamped and therefore predictable**. Verified 19
+Sep: the September Eatbook post resolves, the October one 404s — it simply isn't
+published yet.
+
+**This is why so many deals share an end date of 30 September.** Those dates are
+mostly "the end of the month I found this in", not a date any venue gave. Treat
+`end_date` as bookkeeping, not fact, and fix it before building anything that
+acts on it automatically.
+
+The monthly ritual that keeps inventory alive: when the new roundups publish,
+walk the expiry panel — still listed, tap **+1 mo**; gone, leave it — then add
+what's new, aiming at the gaps (Activities, North-East, evening outside Central,
+Romantic that isn't a meal).
+
 ### Design backlog (agreed 19 Sep, 3 of 5 done)
 
 From a design review of the running site. **#1–#3 are done**; #4 and #5 are open
@@ -460,16 +575,39 @@ what failed before reopening it.
 ### Next up
 
 1. **Inventory.** 19 deals, 12 Central. "Under $15 in the East" has zero exact
-   matches. This is content, not code.
+   matches. This is content, not code. Worse, it *shrinks on its own*: 6 deals
+   end 30 Sep and 2 more by 12 Oct, taking the live site from 19 to 11 with
+   nobody touching it. **North-East hits zero on 1 Oct and Activities hits zero
+   on 12 Oct**, and both keep their filter chips. Set a coverage floor rather
+   than a total — every area ≥3, every category ≥3, every vibe ≥3, ≥8 ongoing
+   (roughly 35–40 deals) — which kills every empty state the filters can make.
 2. **Fill in `original_price` on the 4 percentage deals.** Without it the detail
-   page can't show what "Up to 26% off" is off *of*, so it's unbudgetable.
-3. **Move the Zoo's real catch out of the description.** "Discounted admission for
+   page can't show what "Up to 26% off" is off *of*, so it's unbudgetable — and
+   "To Stay or Not to Stay" has to fail all four for being unverifiable.
+3. **Confirm whether the bank-card deals accept debit or credit only.** Royale
+   needs DBS/POSB, Maybank, OCBC or Citi; Crossroads is DBS/POSB only; CLOVE
+   takes five banks. These are three of the strongest discounts, and that one
+   word decides whether students — the stated audience — can use them at all.
+   One phone call.
+4. **Four deals ($48–$98) have no discount and no `original_price`** —
+   Quintessential English Afternoon Tea, Toy Story High Tea at SKAI, Peranakan
+   Buffet, Treasures of the Sea. They are menu prices on a deals site. Find what
+   they're discounted from, or drop them.
+5. **Fix the fake end dates** before automating anything on top of them (see
+   "Where deals actually come from"). Genuinely standing offers should be
+   `ongoing`, which takes them off the expiry treadmill for good.
+6. **`price_unit` mis-sorts Kok Sen.** It's `total` for 2–3 people, so $40 is
+   really ~$15/head — but Explore's price filters treat it as $40 and it reads
+   mid-range when it's the cheapest thing on the site.
+7. **The F1 Simulator's "$10" is a minimum bar spend, not a ticket price**
+   (`price_unit = 'min spend'`). The card reads like a $10 activity.
+8. **Move the Zoo's real catch out of the description.** "Discounted admission for
    WildPass holders" is the actual condition and it's buried in prose.
-4. **Public holidays run out after 2027.** MOM publishes the next year around June.
-5. **OMMA and Fireplace** have day rules but no public-holiday answers.
-6. **Deal durations** are a flat 60 min for every deal. A real `duration_mins`
+9. **Public holidays run out after 2027.** MOM publishes the next year around June.
+10. **OMMA and Fireplace** have day rules but no public-holiday answers.
+11. **Deal durations** are a flat 60 min for every deal. A real `duration_mins`
    field would make plan timings honest.
-7. **`signUp()` passes no `emailRedirectTo`** (`app.js`, ~line 126), so every
+12. **`signUp()` passes no `emailRedirectTo`** (`app.js`, ~line 126), so every
    confirmation link inherits the dashboard's Site URL silently. That one field
    being wrong is what broke the first live test. Passing it explicitly would
    make the app state where it wants people to land — needs the target in the
@@ -530,23 +668,64 @@ what failed before reopening it.
 
 ## 7. Where to pick up
 
-**Nothing is blocking launch.** Signup email was the last one and it works
-(section 5). What's left is inventory and polish, in rough order of value:
+**Nothing is blocking launch**, but two things are actively costing users. In
+rough order of value:
 
-1. **Add deals outside Central.** 19 deals, 12 Central. This is the weakest part
-   of the product and no amount of code fixes it.
-2. **Design backlog #4 (planner reorder)** — show first, refine after. The most
-   structural change left; talk it through before building.
-3. Fill in `original_price` on the 4 percentage deals, and move the Zoo's
-   WildPass condition out of its description.
-4. **Check the supplier dashboard and admin queue on a phone while signed in** —
-   never verified, both redirect when signed out. Pair this with giving
+1. **Build password recovery.** There is none at all, and it silently loses
+   accounts — see section 5. Small job, the email side already works.
+2. **Check why auth mail lands in Gmail spam** (section 5). Signup
+   confirmations take the same path, so this is a funnel leak nobody would
+   notice from the inside.
+3. **Inventory, and the 30 Sep cliff.** 6 deals end 30 Sep, 2 more by 12 Oct;
+   North-East and Activities both hit zero. Open
+   `getdatify.com/admin.html` → **Expiring soon** and walk the list: still
+   running, tap **+1 mo**; genuinely open-ended, tap **Ongoing**. Most of those
+   dates are bookkeeping, not fact.
+4. **Fix the four "deals" that have no discount**, fill in `original_price` on
+   the four percentage offers, and confirm the debit-vs-credit question on the
+   three bank-card deals (section 5, Next up 2–4).
+5. **Design backlog #4 (planner reorder)** — show first, refine after. Still the
+   most structural change left; talk it through before building.
+6. **Check the supplier dashboard on a phone while signed in.** `admin.html` was
+   checked at 375px on 19–20 Sep (tables scroll sideways, usable but not
+   pleasant); the supplier dashboard still never has been. Pair this with giving
    `css/supplier.css` the same type-token pass the customer site got: it still
    has 38 hand-picked font sizes and its own `:root`.
-5. Raise the Supabase auth rate limit (section 5).
-6. Design backlog #5 (hero proof line) — a one-liner whenever you want it.
+7. Raise the Supabase auth rate limit (section 5).
+8. Design backlog #5 (hero proof line) — a one-liner whenever you want it.
 
-### Repo state at handoff (19 Sep)
+### Proposed but not built
+
+- **A "Drop" button on flagged rows** in To Stay or Not to Stay. Today the
+  verdict and the action live in different tables: you read a flagged deal, then
+  scroll to the Deals card, switch the filter to Approved, find it again and
+  Reject. One button would close the loop.
+- **A roundup watcher.** A scheduled function polling the three source blogs for
+  next month's post and mailing when one appears — the trigger for the monthly
+  inventory pass (section 5, "Where deals actually come from"). Deliberately
+  *not* a "your deals expire soon" alert: that would only report dates we set
+  ourselves. Anything it finds must land as `status = 'pending'` for review,
+  never straight onto the site.
+- **`deal_date_history`** — nothing records that an end date changed or that a
+  deal lapsed and was renewed, so renewal rate is unknowable. Worth having
+  before spending weeks chasing venues; not worth it before that.
+
+### Repo state at handoff (20 Sep)
+
+Five commits on 20 Sep, all pushed and deployed:
+
+```
+7ff205e  Put an Admin link in the site menu for the founder account
+dfcea69  Fix the invisible theme toggle and move Sign out out of the nav
+ff4429c  Link the admin and supplier pages to each other
+c7cc81a  Track deal expiry and keep-or-drop verdicts on the admin page
+```
+
+Database changes the same day: `deal_reviews` created (founder-only RLS, dumped
+into `supabase-rls-policies.sql`) and seeded with 19 verdicts; the broken
+`expire_old_deals()` cron job and its function dropped.
+
+### Repo state at previous handoff (19 Sep)
 
 - **`main` is the only branch, local and remote, in sync, and deployed.**
   Everything described above is live on GetDatify.com. Branches were cleaned up
