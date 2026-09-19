@@ -49,6 +49,13 @@ async function initSupplierDashboard() {
   // Show user email + Seller ID in nav
   const navEl = document.getElementById('nav-user-email');
   if (navEl) navEl.textContent = session.user.email;
+
+  // Both back-office pages are URL-only — nothing on the site links to either,
+  // so without this the only way across is retyping the address. Founder only:
+  // a supplier following the link would just be bounced by admin.js anyway,
+  // but showing them a door they can't open is worse than not showing it.
+  const adminLink = document.getElementById('nav-admin-link');
+  if (adminLink && isAdmin) adminLink.style.display = '';
   const sellerIdEl = document.getElementById('nav-seller-id');
   if (sellerIdEl && data && data.seller_id) {
     sellerIdEl.textContent = data.seller_id;
