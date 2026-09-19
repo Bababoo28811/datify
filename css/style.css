@@ -407,6 +407,7 @@
     .sidebar-btn.primary:hover{background:var(--pink-dark)}
     .sidebar-btn.secondary{border:1.5px solid var(--border);background:var(--white);color:var(--text)}
     .sidebar-btn.secondary:hover{border-color:var(--pink);color:var(--pink)}
+    a.sidebar-btn{display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;box-sizing:border-box}
 
     /* SAVED */
     .saved-wrap{max-width:800px;margin:0 auto;padding:40px 24px}

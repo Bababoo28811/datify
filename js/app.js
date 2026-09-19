@@ -366,6 +366,7 @@
         discountLabel: r.discount_label || null,
         originalPrice: r.original_price != null ? Number(r.original_price) : null,
         sourceUrl: r.source_url || null,
+        venueUrl:  r.venue_url  || null,
         imageIsStock: !!r.image_is_stock,
         // Not every price is per-person: a set menu for two is a total,
         // flat izakaya pricing is per dish, a simulator is a minimum spend.
@@ -870,6 +871,7 @@
       if (at >= 0) { ids.splice(at, 1); SAVED_DEAL_IDS.delete(dealId); }
       else         { ids.push(dealId);  SAVED_DEAL_IDS.add(dealId); }
       setGuestShortlist(ids);
+      track(at >= 0 ? 'unsave_deal' : 'save_deal', { dealId });
       refreshSaveButtons();
       if (document.getElementById('page-saved')?.classList.contains('active')) buildSavedDeals();
       // On Swipe the count lives in the header instead: a toast here covers the
@@ -890,10 +892,12 @@
           .eq('user_id', session.user.id).eq('deal_id', dealId);
         if (error) throw error;
         SAVED_DEAL_IDS.delete(dealId);
+        track('unsave_deal', { dealId });
       } else {
         const { error } = await db.from('saved_deals').insert({ user_id: session.user.id, deal_id: dealId });
         if (error) throw error;
         SAVED_DEAL_IDS.add(dealId);
+        track('save_deal', { dealId });
       }
     } catch (err) {
       console.error('Failed to update saved deal:', err);
@@ -978,6 +982,8 @@
     if (page === 'explore') buildExplore(activeCat, activePriceF);
     if (page === 'profile') buildProfile();
     if (page === 'swipe')   buildSwipe();
+
+    track('page_view', { path: page });
   }
 
   function switchSavedTab(tab, btn) {
@@ -1077,6 +1083,7 @@
     const stops = buildItinerary(params.vibe, params.budget, timeToMins(params.time),
       params.dur * 60, params.loc, dayInfo(params.date), { ...opts, cats: params.cats });
     currentPlan = { params, stops, savedId: null };
+    track('plan_generated', { props: { vibe: params.vibe, budget: params.budget, loc: params.loc, stops: stops.length } });
     retimePlan();
     renderPlan();
     refineTravelTimes();
@@ -1108,6 +1115,7 @@
   function addToPlan(id) {
     const d = DEALS.find(x => x.id === id);
     if (!d) return;
+    track('add_to_plan', { dealId: id });
     if (currentPlan && currentPlan.stops.length) {
       if (currentPlan.stops.some(s => s.id === id)) {
         go('results');
@@ -1734,19 +1742,21 @@
           <div class="detail-meta-item"><div class="detail-meta-label">Location</div><div class="detail-meta-val">${escHtmlApp(d.location)}</div></div>
         </div>
         ${d.imageIsStock ? `<p class="detail-source">Photo is a stock image for illustration — not a photo of this venue.</p>` : ''}
-        ${d.sourceUrl ? `<p class="detail-source">Deal details via <a href="${escHtmlApp(d.sourceUrl)}" target="_blank" rel="noopener noreferrer">the original listing ${icon('arrow-up-right', {size:13})}</a>. Always check current terms with the merchant before you go.</p>` : ''}
+        ${d.sourceUrl ? `<p class="detail-source">Deal details via <a href="${escHtmlApp(d.sourceUrl)}" target="_blank" rel="noopener noreferrer" onclick="track('source_click', { dealId: '${d.id}' })">the original listing ${icon('arrow-up-right', {size:13})}</a>. Always check current terms with the merchant before you go.</p>` : ''}
       </div>
       <div class="detail-sidebar">
         <div class="sidebar-price">${priceLabel(d)}</div>
         <div class="sidebar-price-sub">${escHtmlApp(priceUnitLabel(d))}${d.originalPrice ? ` · usually ${money(d.originalPrice)}` : ''}</div>
         <button class="sidebar-btn primary" onclick="addToPlan('${d.id}')">Add to plan</button>
         <button class="sidebar-btn secondary" id="save-deal-btn" data-deal-id="${d.id}" onclick="toggleSaveDeal('${d.id}', this)">${SAVED_DEAL_IDS.has(d.id) ? 'Saved ✓' : 'Save deal ♡'}</button>
+        ${d.venueUrl ? `<a class="sidebar-btn secondary" href="${escHtmlApp(d.venueUrl)}" target="_blank" rel="noopener noreferrer" onclick="track('venue_click', { dealId: '${d.id}' })">Visit venue ${icon('arrow-up-right', { size: 14 })}</a>` : ''}
       </div>`;
     if (SAVED_DEAL_IDS.has(d.id)) {
       const btn = document.getElementById('save-deal-btn');
       btn.style.borderColor = 'var(--green)';
       btn.style.color       = 'var(--green)';
     }
+    track('deal_view', { dealId: id });
     go('detail');
   }
 
@@ -2297,6 +2307,13 @@
     // Non-fatal: worst case the user just isn't auto-redirected /
     // the nav stays in signed-out state until they refresh.
     console.error('Boot: failed to check session:', err);
+  });
+
+  // The page someone lands on is rendered by index.html, not by go(), so
+  // the first page_view of a visit has to be logged here or it is never
+  // counted at all — and that is the one view every visit has.
+  track('page_view', {
+    path: document.querySelector('.page.active')?.id.replace(/^page-/, '') || 'home'
   });
 
   // Last-resort safety net so a bug anywhere doesn't fail silently —

@@ -41,6 +41,7 @@ will ask directly when she's short on time.
 | `supplier-dashboard.html` + `js/supplier.js` + `css/supplier.css` | Supplier portal: add/edit deals, categories, image upload. |
 | `admin.html` + `js/admin.js` | Founder-only. Approval queue, **Expiring soon**, **To Stay or Not to Stay** (shares `css/supplier.css`). This is Elisa's workspace — not the supplier dashboard. |
 | `js/supabase-client.js` | Creates the `db` client. Must load before `app.js`. |
+| `js/track.js` | `track()` — writes one row per interaction to `events`. Loads after the client, before `app.js`. See section 2. |
 | `js/icons.js` | Inline SVG icon set. **Generated — don't hand-edit.** See section 4. |
 | `supabase-rls-policies.sql` | Reference dump of the live RLS policies. See section 2. |
 
@@ -64,6 +65,7 @@ The dead root files (`supplier.js`, `supabase.js`, `Claude outputs/`) were delet
 | `profiles` | 2 | admin queue reads this for supplier emails |
 | `contact_messages` | 1 | |
 | `supplier_whitelist` | 1 | **`choijieen@gmail.com`** ("big ball inc", DTF-0001, added 24 Apr) — *not* Elisa |
+| `events` | 1 | usage log, new 20 Sep. The one row is a verification insert — delete it whenever. |
 
 15 deals have a real price; 4 are percentage-discount offers (`price = 0` +
 `discount_label`). All 19 are geocoded and have `time_slots`.
@@ -92,6 +94,10 @@ supplier access from April.
 
 ### Columns added this month
 
+- **`deals.venue_url`** (20 Sep) — where a visitor is sent when they want the
+  deal. **Not the same as `source_url`**, which points at the roundup blog the
+  deal was copied from. A check constraint requires `http://` or `https://`,
+  because the value is rendered straight into an `href`. NULL on all 19 today.
 - **`deals.time_slots`**, **`free_activities.time_slots`** — `text[]` from
   `morning, midday, afternoon, evening, late` (check constraint). NULL = any time.
   Windows: morning <12pm, midday 11:30–2:30, afternoon 2–6, evening 6–9:30,
@@ -546,6 +552,72 @@ walk the expiry panel — still listed, tap **+1 mo**; gone, leave it — then a
 what's new, aiming at the gaps (Activities, North-East, evening outside Central,
 Romantic that isn't a meal).
 
+### What gets measured (20 Sep)
+
+Until 20 Sep the site collected nothing at all — no analytics script, no click
+tracking, no way to answer "did anyone look at this deal." That is now an
+`events` table in Supabase and a `track()` helper in `js/track.js`.
+
+It is deliberately **first-party**: no Google Analytics, no third-party script,
+no cookie, nothing leaving our own database. That is partly a privacy choice
+and partly a commercial one — the numbers are the asset you quote at a venue,
+and they should not live in somebody else's dashboard.
+
+**What is stored:** the event name, which deal it was about, a random
+`session_id` the browser invents for itself, and the page. **What is not:** IP
+address, user agent, email, name. When someone is signed in the database fills
+`user_id` from their token — the browser is never trusted to say who it is.
+
+Events currently logged:
+
+| Event | Fired when |
+|---|---|
+| `page_view` | any `go()`, plus once on load for the landing page |
+| `deal_view` | `openDeal()` |
+| `add_to_plan` | the Add to plan button |
+| `save_deal` / `unsave_deal` | the heart, signed in or guest |
+| `plan_generated` | every itinerary built (records vibe, budget, area, stop count) |
+| `venue_click` | **the one that matters** — someone leaving for the venue |
+| `source_click` | someone leaving for the roundup blog instead |
+
+`signup`, `login` and `plan_saved` are allowed by the table's check constraint
+but are **not wired up yet** — the constraint was written ahead of the code so
+adding them later needs no migration.
+
+Three things worth knowing about the design:
+
+- **Insert is open to anon**, because most visitors are not signed in. That
+  makes the CHECK constraints part of the security boundary rather than
+  decoration: the event name must be one of a known list, and the field sizes
+  are capped, so the endpoint cannot be turned into free text storage. Verified
+  20 Sep — a junk event name, an oversized path and a forged `user_id` are all
+  rejected.
+- **There is no UPDATE or DELETE policy.** The log is append-only; nothing
+  reachable through the public API can rewrite it.
+- **`track()` can never break the page.** Every failure path is a silent
+  no-op — offline, ad blocker, blocked localStorage, failed insert. Nothing
+  awaits it.
+
+Reading it back (Supabase → SQL editor; only the founder account can read it):
+
+```sql
+-- the numbers you would actually quote at a venue
+select d.title,
+       count(*) filter (where e.name = 'deal_view')   as views,
+       count(*) filter (where e.name = 'venue_click') as clicks_through
+from events e join deals d on d.id = e.deal_id
+where e.created_at > now() - interval '30 days'
+group by d.title order by clicks_through desc;
+
+-- visitors vs visits, last 30 days
+select count(distinct session_id) as visitors, count(*) as page_views
+from events where name = 'page_view' and created_at > now() - interval '30 days';
+```
+
+**The catch: `venue_click` cannot fire yet.** All 19 deals have
+`venue_url = NULL`, so the Visit venue button never renders. Filling those in
+is the job that turns this from plumbing into a number — see section 7.
+
 ### Design backlog (agreed 19 Sep, 3 of 5 done)
 
 From a design review of the running site. **#1–#3 are done**; #4 and #5 are open
@@ -681,18 +753,24 @@ rough order of value:
    `getdatify.com/admin.html` → **Expiring soon** and walk the list: still
    running, tap **+1 mo**; genuinely open-ended, tap **Ongoing**. Most of those
    dates are bookkeeping, not fact.
-4. **Fix the four "deals" that have no discount**, fill in `original_price` on
+4. **Fill in `venue_url` on the 19 deals.** Tracking went in on 20 Sep, but
+   `venue_click` — the one event a venue would pay attention to — cannot fire
+   until a deal has somewhere to click through to. `admin.html` → the Deals
+   table → **Link** on each row; paste the venue's own booking or deal page,
+   *not* the blog it was found on. The button on the deal page only appears
+   once a URL exists, so the site looks unchanged until you start.
+5. **Fix the four "deals" that have no discount**, fill in `original_price` on
    the four percentage offers, and confirm the debit-vs-credit question on the
    three bank-card deals (section 5, Next up 2–4).
-5. **Design backlog #4 (planner reorder)** — show first, refine after. Still the
+6. **Design backlog #4 (planner reorder)** — show first, refine after. Still the
    most structural change left; talk it through before building.
-6. **Check the supplier dashboard on a phone while signed in.** `admin.html` was
+7. **Check the supplier dashboard on a phone while signed in.** `admin.html` was
    checked at 375px on 19–20 Sep (tables scroll sideways, usable but not
    pleasant); the supplier dashboard still never has been. Pair this with giving
    `css/supplier.css` the same type-token pass the customer site got: it still
    has 38 hand-picked font sizes and its own `:root`.
-7. Raise the Supabase auth rate limit (section 5).
-8. Design backlog #5 (hero proof line) — a one-liner whenever you want it.
+8. Raise the Supabase auth rate limit (section 5).
+9. Design backlog #5 (hero proof line) — a one-liner whenever you want it.
 
 ### Proposed but not built
 

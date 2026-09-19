@@ -109,6 +109,7 @@ async function loadAdminDeals() {
       <td>
         <div class="td-actions">
           <button class="btn-sm-outline" onclick="viewAdminDeal('${d.id}')">View</button>
+          <button class="btn-sm-outline" onclick="setVenueUrl('${d.id}')" title="${d.venue_url ? escHtml(d.venue_url) : 'No venue link yet'}">Link${d.venue_url ? ' &check;' : ''}</button>
           ${status !== 'approved' ? `<button class="btn-sm" onclick="setDealStatus('${d.id}','approved')">Approve</button>` : ''}
           ${status !== 'rejected' ? `<button class="btn-sm-danger" onclick="setDealStatus('${d.id}','rejected')">Reject</button>` : ''}
         </div>
@@ -126,6 +127,42 @@ function viewAdminDeal(id) {
     `Location: ${d.location || '—'}\nVibe: ${d.vibe || '—'}\nActivity: ${d.activity_type || '—'}\n` +
     `Dates: ${d.ongoing ? 'Ongoing' : (d.start_date || '—') + ' to ' + (d.end_date || '—')}`
   );
+}
+
+// The 19 curated deals have no supplier, so they never show up on the
+// supplier dashboard and there is nowhere else to give them a venue link.
+// A prompt is crude, but it matches viewAdminDeal()'s alert() and it is the
+// fastest way to walk a list of 19.
+async function setVenueUrl(id) {
+  const d = adminDeals.find(x => x.id === id);
+  if (!d) return;
+  const msgEl = document.getElementById('admin-msg');
+
+  const answer = prompt(
+    `Venue link for "${d.title}"\n\n` +
+    `Where a visitor should land when they want this deal - the venue's own ` +
+    `booking or deal page, not the blog we found it on.\n\n` +
+    `Clear the box and press OK to remove it.`,
+    d.venue_url || ''
+  );
+  if (answer === null) return;               // cancelled
+
+  const url = answer.trim();
+  // The same rule the deals_venue_url_scheme constraint enforces, checked
+  // here so a typo comes back as a sentence instead of a Postgres error.
+  if (url && !/^https?:\/\//i.test(url)) {
+    showMsg(msgEl, 'error', 'A venue link has to start with http:// or https://');
+    return;
+  }
+
+  const { error } = await db.from('deals').update({ venue_url: url || null }).eq('id', id);
+  if (error) {
+    showMsg(msgEl, 'error', error.message);
+    return;
+  }
+  showMsg(msgEl, 'success', url ? 'Venue link saved.' : 'Venue link removed.');
+  setTimeout(() => (msgEl.style.display = 'none'), 2000);
+  await loadAdminDeals();
 }
 
 async function setDealStatus(id, status) {

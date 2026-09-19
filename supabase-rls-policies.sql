@@ -350,3 +350,38 @@ create policy deal_reviews_admin_all on deal_reviews
   for all to authenticated
   using      ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com')
   with check ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');
+
+
+-- ------------------------------------------------------------
+-- events — first-party usage log (added 20 Sep 2026).
+--
+-- Insert is open to anon, because the whole point is to count
+-- people who are not signed in. That makes the CHECK constraints
+-- on the table part of the security boundary, not just tidiness:
+-- events_name_known pins the event name to a known list so the
+-- endpoint cannot be used as free text storage, and the length
+-- and size limits cap what one request can write.
+--
+-- user_id is NOT trusted from the client. The column defaults to
+-- auth.uid(), and the insert policy below rejects any row that
+-- claims to belong to somebody else.
+--
+-- Read is founder-only: this is behavioural data about real
+-- visitors and nothing on the customer site ever reads it back.
+-- There is deliberately no UPDATE and no DELETE policy — the log
+-- is append-only, so nothing reachable through the public API can
+-- rewrite or erase history.
+-- ------------------------------------------------------------
+alter table events enable row level security;
+
+drop policy if exists events_public_insert on events;
+create policy events_public_insert
+  on events for insert
+  to anon, authenticated
+  with check (user_id is null or user_id = (select auth.uid()));
+
+drop policy if exists events_admin_select on events;
+create policy events_admin_select
+  on events for select
+  to authenticated
+  using ((select auth.jwt() ->> 'email') = 'elisazhu.ys@gmail.com');

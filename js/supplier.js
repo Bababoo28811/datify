@@ -407,6 +407,7 @@ function startEdit(id) {
     cb.checked = (deal.days || []).includes(cb.value);
   });
   holidayAnswers = { ...(deal.holiday_validity || {}) };
+  document.getElementById('f-venue-url').value    = deal.venue_url      || '';
   document.getElementById('img-url-input').value  = deal.image_url      || '';
 
   if (deal.image_url) {
@@ -500,6 +501,7 @@ async function submitDeal(e) {
       activity_type:  document.getElementById('f-activity').value.trim() || null,
       price_unit:     document.getElementById('f-price-unit').value || 'per person',
       opening_hours:  document.getElementById('f-hours').value.trim() || null,
+      venue_url:      document.getElementById('f-venue-url').value.trim() || null,
       start_date:     startDate,
       end_date:       endDate,
       time_slots:     slots.length ? slots : null,
