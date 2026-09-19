@@ -24,7 +24,7 @@
       --nav-bg:rgba(23,21,26,0.92);
     }
     html,body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;transition:background 0.2s,color 0.2s}
-    .theme-toggle{width:36px;height:36px;border-radius:100px;border:1.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+    .theme-toggle{width:36px;height:36px;border-radius:100px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
     .theme-toggle:hover{border-color:var(--pink)}
 
     /* ── NAV ── */
@@ -53,6 +53,11 @@
 
     /* ── LAYOUT ── */
     .wrap{max-width:1140px;margin:0 auto;padding:36px 24px}
+    /* Sign out sits at the foot of the page, not in the nav. Top-right of a
+       navbar is where muscle memory reaches for something else, and it sat
+       directly beside the two buttons actually used often — an accidental
+       sign-out on a login-gated back-office page costs a whole log-in. */
+    .signout-foot{display:flex;justify-content:flex-end;margin-top:32px}
     .page-head{margin-bottom:32px}
     .page-head h1{font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}
     .page-head p{font-size:14px;color:var(--muted)}
